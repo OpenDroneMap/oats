@@ -1,5 +1,5 @@
-# OpenDroneMap Automated Testing Suite
+![oats-icon](https://user-images.githubusercontent.com/1951843/47456353-42314880-d7a2-11e8-8fb1-81815ba78353.png)
 
-![oats-icon](https://user-images.githubusercontent.com/1951843/47456226-e8308300-d7a1-11e8-87ee-544c97894bff.png)
+# OpenDroneMap Automated Testing Suite
 
 Documentation coming soon.

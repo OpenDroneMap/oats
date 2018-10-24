@@ -16,7 +16,10 @@
    version="1.1"
    id="svg8"
    inkscape:version="0.92.2 2405546, 2018-03-11"
-   sodipodi:docname="icon.svg">
+   sodipodi:docname="icon.svg"
+   inkscape:export-filename="/home/piero/Desktop/oat-icon.png"
+   inkscape:export-xdpi="24"
+   inkscape:export-ydpi="24">
   <defs
      id="defs2" />
   <sodipodi:namedview
@@ -26,11 +29,11 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="0.24748737"
-     inkscape:cx="-617.75974"
-     inkscape:cy="360.52056"
+     inkscape:zoom="0.35"
+     inkscape:cx="-212.78584"
+     inkscape:cy="324.15276"
      inkscape:document-units="mm"
-     inkscape:current-layer="g4576"
+     inkscape:current-layer="layer1"
      showgrid="false"
      units="px"
      showguides="true"
@@ -60,19 +63,19 @@
      transform="translate(0,-85.333317)">
     <g
        id="g4576"
-       transform="matrix(3.4999195,0,0,3.4999195,-143.38689,-407.70566)">
+       transform="matrix(3.9191345,0,0,3.9191345,-173.23954,-472.03341)">
       <path
          sodipodi:nodetypes="ccccssc"
          inkscape:connector-curvature="0"
          id="path826"
          d="m 75.010907,165.17866 c 1.09404,0.0264 6.614813,0.51467 8.293637,-0.98939 2.136129,-1.14552 4.918958,-8.37753 3.763967,-8.13506 -1.238235,0.32617 -4.77802,-0.0674 -5.146591,0.0288 -0.368576,0.0962 -1.826868,0.24055 -3.084146,1.27121 -1.257276,1.03067 -2.140373,2.57843 -2.457092,3.56957 -0.316719,0.99113 -1.115955,2.95307 -1.369775,4.25485 z"
-         style="fill:#faff30;stroke:#4e4e4e;stroke-width:1.32294709;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;fill-opacity:1" />
+         style="fill:#faff30;fill-opacity:1;stroke:#333333;stroke-width:1.32294714;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
       <path
          sodipodi:nodetypes="cc"
          inkscape:connector-curvature="0"
          id="path828"
-         d="m 71.594177,162.49265 v 35.17974"
-         style="fill:#333333;stroke:#4e4e4e;stroke-width:2.64589419;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+         d="m 71.594177,162.3587 v 31.66779"
+         style="fill:#191919;stroke:#333333;stroke-width:2.64589429;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
       <use
          style="stroke-width:1.32291663;stroke-miterlimit:4;stroke-dasharray:none"
          height="100%"
