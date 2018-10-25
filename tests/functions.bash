@@ -7,12 +7,34 @@ run_test(){
 	# Split string using ',' separator
 	IFS=',' read -ra DST <<< "$TAGS"
 	for tag in "${DST[@]}"; do
-		echo run docker run -ti --rm opendronemap/opendronemap:$tag --version >> out.log
+
+		# Sync dataset images to test directory
+		IMAGES_DIR="results/$tag/$dataset/$BATS_TEST_NAME/"
+
+		if [ "$CLEAR" == "YES" ]; then
+			rm -fr $IMAGES_DIR
+		fi
+
+		mkdir -p $IMAGES_DIR
+		rsync -a --delete datasets/$dataset/* $IMAGES_DIR
+
+		DOCKER_CMD="docker run -ti --rm \
+				-v $(pwd)/$IMAGES_DIR:/datasets/code \
+				$DOCKER_IMAGE:$tag \
+				--project-path /datasets \
+				$options \
+				$CMD_OPTIONS"
+
+		if [ "$TESTRUN" == "YES" ]; then
+			echo $DOCKER_CMD >> docker.log
+			run echo "$IMAGES_DIR output"
+		else
+			run $DOCKER_CMD
+		fi
 	done
 
 	# Save command output to log
-	#echo $output > $1.log
-	run echo 1
+	echo $output > $IMAGES_DIR/task_output.log
 	[ "$status" -eq 0 ]
 }
 
