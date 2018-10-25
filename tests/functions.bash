@@ -1,25 +1,27 @@
 run_test(){
-	dataset="$1"
+	dataset=$(basename $BATS_TEST_FILENAME .bats)
 	options="$2"
-	tag=${3:-latest}
 
 	check_download_dataset $dataset
-	
-	#run docker run --rm opendronemap/opendronemap --version
-	run echo 1
 
-	# # Save command output to log
-	echo $output > $1.log
+	# Split string using ',' separator
+	IFS=',' read -ra DST <<< "$TAGS"
+	for tag in "${DST[@]}"; do
+		echo run docker run -ti --rm opendronemap/opendronemap:$tag --version >> out.log
+	done
+
+	# Save command output to log
+	#echo $output > $1.log
+	run echo 1
 	[ "$status" -eq 0 ]
 }
 
 check_download_dataset(){
 	dataset="$1"
 
-	if [ ! -e ./datasets/$dataset/images ] && [ -e ./datasets/$dataset.cfg ]; then
-		source ./datasets/$dataset.cfg
+	if [ ! -e ./datasets/$dataset/images ] && [ ! -z $DATASET_URL ]; then
 		mkdir ./datasets/$dataset
-		wget $URL -q -O ./datasets/$dataset/download.zip
+		wget $DATASET_URL -q -O ./datasets/$dataset/download.zip
 		cd ./datasets/$dataset/
 		unzip ./download.zip
 		rm ./download.zip
