@@ -72,7 +72,7 @@ check_command(){
 		# Can we attempt to install it?
 		if [[ ! -z "$3" ]]; then
 			echo -e "$check_msg_prefix \033[93mnot found, we'll attempt to install\033[39m"
-			run "$3 || sudo $3"
+			eval "$3 || sudo $3"
 
 			# Recurse, but don't pass the install command
 			check_command "$1" "$2"	
