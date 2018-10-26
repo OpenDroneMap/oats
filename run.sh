@@ -6,6 +6,7 @@ export DOCKER_IMAGE="opendronemap/opendronemap"
 export CMD_OPTIONS=""
 export CLEAR=NO
 export TESTRUN=NO
+export NUKE=NO
 
 POSITIONAL=()
 while [[ $# -gt 0 ]]
@@ -35,6 +36,10 @@ case $key in
     export TESTRUN=YES
     shift # past argument
     ;;
+	--nuke)
+    export NUKE=YES
+    shift # past argument
+    ;;
     --help)
     export HELP=YES
     shift # past argument
@@ -62,6 +67,7 @@ usage(){
   echo "	--docker_image	<docker image>	Docker image to use. (default: opendronemap/opendronemap)"
   echo "	--clear	Delete previous test results. (default: no)"
   echo "	--test	Do not execute docker commands, but simply write them in oats.log. (default: no)"
+  echo "	--nuke	Clear test results, datasets files and any other file in the workspace. (default: no)"
   exit
 }
 
@@ -121,6 +127,11 @@ build_tests(){
 
 if [ "$HELP" == "YES" ]; then
 	usage
+fi
+
+if [ "$NUKE" == "YES" ]; then
+	rm -vfr results/* datasets/* tests/build/* 
+	exit 0
 fi
 
 environment_check
