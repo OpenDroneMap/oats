@@ -80,6 +80,8 @@ check_download_dataset(){
 			mkdir images
 			mv *.* images
 		fi
+
+		cd ../../
 	fi
 }
 
