@@ -83,7 +83,7 @@ check_command(){
 	fi
 
 	if [[ $not_found ]]; then
-		return 1
+		exit 1
 	fi
 }
 
