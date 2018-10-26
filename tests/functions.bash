@@ -42,9 +42,9 @@ run_test(){
 		# Assign permissions to local user
 		docker run -i --rm \
 			-v $(pwd)/$IMAGES_DIR:/dataset \
-			--entrypoint /bin/bash \
+			--entrypoint /bin/chown \
 			$DOCKER_IMAGE:$tag \
-			chown -R $(id -u):$(id -u) /dataset
+			-R $(id -u):$(id -u) /dataset
 	fi
 
 	# Save command output to log
