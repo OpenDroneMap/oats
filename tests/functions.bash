@@ -25,7 +25,7 @@ run_test(){
 	mkdir -p $IMAGES_DIR
 	rsync -a --delete datasets/$dataset/* $IMAGES_DIR
 
-	DOCKER_CMD="docker run -ti --rm \
+	DOCKER_CMD="docker run -i --rm \
 			-v $(pwd)/$IMAGES_DIR:/datasets/code \
 			$DOCKER_IMAGE:$tag \
 			--project-path /datasets \
@@ -40,10 +40,10 @@ run_test(){
 		run $DOCKER_CMD
 
 		# Assign permissions to local user
-		docker run -ti --rm \
+		docker run -i --rm \
 			-v $(pwd)/$IMAGES_DIR:/dataset \
-			$DOCKER_IMAGE:$tag \
 			--entrypoint /bin/bash \
+			$DOCKER_IMAGE:$tag \
 			chown -R $(id -u):$(id -u) /dataset
 	fi
 
