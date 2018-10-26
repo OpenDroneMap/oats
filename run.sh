@@ -7,6 +7,7 @@ export CMD_OPTIONS=""
 export CLEAR=NO
 export TESTRUN=NO
 export NUKE=NO
+export USE_LOCAL_VOLUME=NO
 
 POSITIONAL=()
 while [[ $# -gt 0 ]]
@@ -40,6 +41,10 @@ case $key in
     export NUKE=YES
     shift # past argument
     ;;
+	--use_local_volume)
+    export USE_LOCAL_VOLUME=YES
+    shift # past argument
+    ;;
     --help)
     export HELP=YES
     shift # past argument
@@ -65,6 +70,7 @@ usage(){
   echo "	--tags	<tag1,tag2,...>	docker tag images to test. Each tag is tested against each dataset. (default: latest)"
   echo "	--options	\"--odm-option 1 --rerun-from odm_meshing ...\"	Options to append to each OpenDroneMap invocation (for example to rerun from a certain step of the pipeline). Make sure to add these in quotes. (default: \"\")"
   echo "	--docker_image	<docker image>	Docker image to use. (default: opendronemap/opendronemap)"
+  echo "	--use_local_volume	Copy dataset inputs to a temporary location within the docker container instead of directly binding to the host directory. Windows users should use this option to avoid having tests failing due to missing files. (default: no)"
   echo "	--clear	Delete previous test results. (default: no)"
   echo "	--test	Do not execute docker commands, but simply write them in oats.log. (default: no)"
   echo "	--nuke	Clear test results, datasets files and any other file in the workspace. (default: no)"

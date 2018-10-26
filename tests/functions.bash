@@ -32,12 +32,22 @@ run_test(){
 			$options \
 			$CMD_OPTIONS"
 
+	# Workaround: 
+
+	if [ "$USE_LOCAL_VOLUME" == "YES" ]; then
+		DOCKER_CMD="docker run -i --rm \
+			-v $(pwd)/$IMAGES_DIR:/staging \
+			--entrypoint bash \
+			$DOCKER_IMAGE:$tag \
+			-c \"mkdir -p /datasets/code && cp -R /staging/* /datasets/code && ./run.sh --project-path /datasets $options $CMD_OPTIONS code && cp -R /datasets/code/* /staging\" "
+	fi
+
 	if [ "$TESTRUN" == "YES" ]; then
 		log "About to run: $DOCKER_CMD"
 		run echo "$IMAGES_DIR output"
 	else
 		log "About to run: $DOCKER_CMD"
-		run $DOCKER_CMD
+		run eval $DOCKER_CMD
 
 		# Assign permissions to local user
 		docker run -i --rm \
@@ -48,7 +58,7 @@ run_test(){
 	fi
 
 	# Save command output to log
-	echo $output > $IMAGES_DIR/task_output.log
+	echo $lines > $IMAGES_DIR/task_output.log
 
 	# Publish output directory (for people to check files, do extra test logic)
 	export output_dir=$IMAGES_DIR
