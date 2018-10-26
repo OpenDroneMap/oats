@@ -1,40 +1,59 @@
+BATS_BASENAME=$(basename $BATS_TEST_FILENAME .bats)
+
 run_test(){
-	dataset=$(basename $BATS_TEST_FILENAME .bats)
-	options="$2"
+	options="$1"
+	tag="$2"
+
+	# Remove tag from dataset name
+	dataset=$(sed "s/_$tag\$//" <<< $BATS_BASENAME)
+
+	# Param check...
+	if [ -z $tag ]; then
+		log 'run_test called without tag parameter. Did you forget to add $ in front of $run_test?' 'error'
+		return 1
+	fi
 
 	check_download_dataset $dataset
 
-	# Split string using ',' separator
-	IFS=',' read -ra DST <<< "$TAGS"
-	for tag in "${DST[@]}"; do
+	# Sync dataset images to test directory
+	IMAGES_DIR="results/$tag/$dataset/$BATS_TEST_NAME/"
 
-		# Sync dataset images to test directory
-		IMAGES_DIR="results/$tag/$dataset/$BATS_TEST_NAME/"
+	if [ "$CLEAR" == "YES" ]; then
+		rm -fr $IMAGES_DIR
+	fi
 
-		if [ "$CLEAR" == "YES" ]; then
-			rm -fr $IMAGES_DIR
-		fi
+	mkdir -p $IMAGES_DIR
+	rsync -a --delete datasets/$dataset/* $IMAGES_DIR
 
-		mkdir -p $IMAGES_DIR
-		rsync -a --delete datasets/$dataset/* $IMAGES_DIR
+	DOCKER_CMD="docker run -ti --rm \
+			-v $(pwd)/$IMAGES_DIR:/datasets/code \
+			$DOCKER_IMAGE:$tag \
+			--project-path /datasets \
+			$options \
+			$CMD_OPTIONS"
 
-		DOCKER_CMD="docker run -ti --rm \
-				-v $(pwd)/$IMAGES_DIR:/datasets/code \
-				$DOCKER_IMAGE:$tag \
-				--project-path /datasets \
-				$options \
-				$CMD_OPTIONS"
+	if [ "$TESTRUN" == "YES" ]; then
+		log "About to run: $DOCKER_CMD"
+		run echo "$IMAGES_DIR output"
+	else
+		log "About to run: $DOCKER_CMD"
+		run $DOCKER_CMD
 
-		if [ "$TESTRUN" == "YES" ]; then
-			echo $DOCKER_CMD >> docker.log
-			run echo "$IMAGES_DIR output"
-		else
-			run $DOCKER_CMD
-		fi
-	done
+		# Assign permissions to local user
+		docker run -ti --rm \
+			-v $(pwd)/$IMAGES_DIR:/dataset \
+			$DOCKER_IMAGE:$tag \
+			--entrypoint /bin/bash \
+			chown -R $(id -u):$(id -u) /dataset
+	fi
 
 	# Save command output to log
 	echo $output > $IMAGES_DIR/task_output.log
+
+	# Publish output directory (for people to check files, do extra test logic)
+	export output_dir=$IMAGES_DIR
+	
+	# Basic check
 	[ "$status" -eq 0 ]
 }
 
@@ -62,4 +81,10 @@ check_download_dataset(){
 			mv *.* images
 		fi
 	fi
+}
+
+log(){
+	message="$1"
+	type="${2:-info}"
+	echo "$type: $message" >> oats.log
 }
