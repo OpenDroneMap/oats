@@ -61,7 +61,10 @@ check_download_dataset(){
 	dataset="$1"
 
 	if [ ! -e ./datasets/$dataset/images ] && [ ! -z $DATASET_URL ]; then
-		mkdir ./datasets/$dataset
+		if [ ! -e ./datasets/$dataset ]; then
+			mkdir ./datasets/$dataset
+		fi 
+
 		wget $DATASET_URL -q -O ./datasets/$dataset/download.zip
 		cd ./datasets/$dataset/
 		unzip ./download.zip
