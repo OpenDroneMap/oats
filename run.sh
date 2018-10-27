@@ -134,6 +134,8 @@ build_tests(){
 	cp functions.bash tests/build/
 }
 
+environment_check
+
 if [ "$HELP" == "YES" ]; then
 	usage
 fi
@@ -142,8 +144,6 @@ if [ "$NUKE" == "YES" ]; then
 	rm -vfr results/* datasets/* tests/build/* 
 	exit 0
 fi
-
-environment_check
 
 if [ ! -e ./bats ]; then
 	./install.sh
