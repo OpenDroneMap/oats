@@ -41,7 +41,7 @@ run_test(){
 			-v $(pwd)/$IMAGES_DIR:/staging \
 			--entrypoint bash \
 			$DOCKER_IMAGE:$tag \
-			-c \"mkdir -p /datasets/code && cp -R /staging/* /datasets/code && ./run.sh --project-path /datasets $options $CMD_OPTIONS code && cp -R /datasets/code/* /staging\" "
+			-c \"mkdir -p /datasets/code && cp -R /staging/* /datasets/code && ./run.sh --project-path /datasets $options $CMD_OPTIONS code; cp -R /datasets/code/* /staging\" "
 	fi
 
 	if [ "$TESTRUN" == "YES" ]; then
@@ -79,7 +79,7 @@ check_download_dataset(){
 
 		wget $DATASET_URL -q -O ./datasets/$dataset/download.zip
 		cd ./datasets/$dataset/
-		unzip ./download.zip
+		unzip ./download.zip 2>/dev/null
 		rm ./download.zip
 		
 		# Remove top level directory if needed
