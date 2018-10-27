@@ -60,7 +60,7 @@ run_test(){
 	fi
 
 	# Save command output to log
-	echo $lines > $IMAGES_DIR/task_output.log
+	echo $output > $IMAGES_DIR/task_output.log
 
 	# Publish output directory (for people to check files, do extra test logic)
 	export output_dir=$IMAGES_DIR

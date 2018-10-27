@@ -116,7 +116,7 @@ build_tests(){
 	for tag in "${DST[@]}"; do
 		for test_file in tests/*.oat; do
 			[ -e "$test_file" ] || continue
-			test_basename=$(basename $test_file .bats)
+			test_basename=$(basename $test_file .oat)
 			out_file="tests/build/$test_basename""_$tag.bats"
 
 			# Replace calls to $run_test with run_test appended by a tag parameter
