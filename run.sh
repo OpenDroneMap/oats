@@ -119,8 +119,11 @@ build_tests(){
 			test_basename=$(basename $test_file .oat)
 			out_file="tests/build/$test_basename""_$tag.bats"
 
+			# Header
+			echo "load functions\n" > $out_file
+
 			# Replace calls to $run_test with run_test appended by a tag parameter
-			sed "s/\$run_test\(.*\)/run_test\1 \"$tag\"/g" $test_file > $out_file
+			sed "s/\$run_test\(.*\)/run_test\1 \"$tag\"/g" $test_file >> $out_file
 
 			# Add BATS_TEST_BASENAME to each test case description
 			#sed -i.bak "s/@test \"\(.*\)\"/@test \"\1 (\$BATS_BASENAME\)\"/g" $out_file
