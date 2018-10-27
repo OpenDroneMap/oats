@@ -114,7 +114,7 @@ build_tests(){
 	# Split string using ',' separator
 	IFS=',' read -ra DST <<< "$TAGS"
 	for tag in "${DST[@]}"; do
-		for test_file in tests/*.bats; do
+		for test_file in tests/*.oat; do
 			[ -e "$test_file" ] || continue
 			test_basename=$(basename $test_file .bats)
 			out_file="tests/build/$test_basename""_$tag.bats"
@@ -168,14 +168,14 @@ elif [ ! -z "$POSITIONAL" ]; then
 	# Split string using ',' separator
 	IFS=',' read -ra DST <<< "$POSITIONAL"
 	for dataset in "${DST[@]}"; do
-		if [ -e tests/$dataset.bats ]; then
+		if [ -e tests/$dataset.oat ]; then
 			# For each tag
 			for test_file in $(echo "tests/build/$dataset""_*.bats"); do
 				[ -e "$test_file" ] || continue
 				$BATS $test_file
 			done
 		else
-			echo "WARNING: tests/$dataset.bats does not exist. Ignoring." 
+			echo "WARNING: tests/$dataset.oat does not exist. Ignoring." 
 		fi
 	done
 else
