@@ -131,7 +131,7 @@ build_tests(){
 	done
 
 	#rm tests/build/*.bak
-	cp tests/*.bash tests/build/
+	cp functions.bash tests/build/
 }
 
 if [ "$HELP" == "YES" ]; then
