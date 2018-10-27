@@ -76,13 +76,14 @@ Don't forget to open a [pull request](https://github.com/OpenDroneMap/oats/compa
 You can test multiple OpenDroneMap versions against one or more datasets. First build docker images for each OpenDroneMap version you want to test.
 
 ```bash
-docker build -t opendronemap/opendronemap:myversion
+cd OpenDroneMap/
+docker build -t opendronemap/opendronemap:myversion .
 ```
 
 Then pass the `--tags` parameter to `run.sh`:
 
 ```bash
-./run.sh all --tags latest,myversion
+./run.sh all --tags latest,myversion,0.3.1
 ```
 
 ## Rerunning Tests
@@ -109,4 +110,17 @@ We have great plans for OATS. Some of them include:
 - [ ] Test groups for defining subset of tasks (small memory footprint, large memory footprint, insane memory footprint, trees, farmland, etc.)
 - [ ] Your own ideas, [let us know](https://github.com/OpenDroneMap/oats/issues)!
 
+## Windows 10 WSL Quirks
 
+If you want to run OATS on Windows 10 using WSL, you'll want to:
+
+1. Bind mount `/mnt/c` (or whatever drive OATS is loaded onto) to `/c` and run all oats commands from this new path: ```bash
+sudo mkdir /c
+sudo mount --bind /mnt/c /c
+cd /c/path/to/oats
+./run.sh --help
+``` This is related to a problem with docker volumes.
+
+2. Pass the `--use_local_volume` flag to all invocations of `./run.sh`. Docker bind mounts on Windows tend to "lag" and OpenDroneMap results could end up being corrupted or will not process entirely. ```bash
+./run.sh all --use_local_volume
+```
