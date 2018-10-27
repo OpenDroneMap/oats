@@ -69,7 +69,7 @@ After the call to `$run_test` is completed you can perform further checks such a
 
 Checks that fail will be flagged by the testing suite.
 
-Don't forget to open a [pull request](compare) to share your dataset with the community when you are ready! :pray: :+1:
+Don't forget to open a [pull request](https://github.com/OpenDroneMap/oats/compare) to share your dataset with the community when you are ready! :pray: :+1:
 
 ## Test Multiple Versions of OpenDroneMap
 
@@ -107,6 +107,6 @@ We have great plans for OATS. Some of them include:
 - [ ] Ability to leverage the cloud to process tasks
 - [ ] Ability to process tasks in parallel
 - [ ] Test groups for defining subset of tasks (small memory footprint, large memory footprint, insane memory footprint, trees, farmland, etc.)
-- [ ] Your own ideas, [let us know](issues)!
+- [ ] Your own ideas, [let us know](https://github.com/OpenDroneMap/oats/issues)!
 
 
