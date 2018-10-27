@@ -16,17 +16,18 @@ run_test(){
 	check_download_dataset $dataset
 
 	# Sync dataset images to test directory
-	IMAGES_DIR="results/$tag/$dataset/$BATS_TEST_NAME/"
+	# Publish output directory (for people to check files, do extra test logic)
+	export output_dir="results/$tag/$dataset/$BATS_TEST_NAME/"
 
 	if [ "$CLEAR" == "YES" ]; then
-		rm -fr $IMAGES_DIR
+		rm -fr $output_dir
 	fi
 
-	mkdir -p $IMAGES_DIR
-	rsync -a --delete datasets/$dataset/* $IMAGES_DIR
+	mkdir -p $output_dir
+	rsync -a --delete datasets/$dataset/* $output_dir
 
 	DOCKER_CMD="docker run -i --rm \
-			-v $(pwd)/$IMAGES_DIR:/datasets/code \
+			-v $(pwd)/$output_dir:/datasets/code \
 			$DOCKER_IMAGE:$tag \
 			--project-path /datasets \
 			$options \
@@ -38,7 +39,7 @@ run_test(){
 	# files, corrupted files and all hell unleashing loose
 	if [ "$USE_LOCAL_VOLUME" == "YES" ]; then
 		DOCKER_CMD="docker run -i --rm \
-			-v $(pwd)/$IMAGES_DIR:/staging \
+			-v $(pwd)/$output_dir:/staging \
 			--entrypoint bash \
 			$DOCKER_IMAGE:$tag \
 			-c \"mkdir -p /datasets/code && cp -R /staging/* /datasets/code && ./run.sh --project-path /datasets $options $CMD_OPTIONS code; cp -R /datasets/code/* /staging\" "
@@ -46,24 +47,23 @@ run_test(){
 
 	if [ "$TESTRUN" == "YES" ]; then
 		log "About to run: $DOCKER_CMD"
-		run echo "$IMAGES_DIR output"
+		run echo "$output_dir output"
 	else
 		log "About to run: $DOCKER_CMD"
 		run eval $DOCKER_CMD
 
+		sleep 1
+
 		# Assign permissions to local user
 		docker run -i --rm \
-			-v $(pwd)/$IMAGES_DIR:/dataset \
+			-v $(pwd)/$output_dir:/dataset \
 			--entrypoint /bin/chown \
 			$DOCKER_IMAGE:$tag \
 			-R $(id -u):$(id -u) /dataset
 	fi
 
 	# Save command output to log
-	echo $output > $IMAGES_DIR/task_output.log
-
-	# Publish output directory (for people to check files, do extra test logic)
-	export output_dir=$IMAGES_DIR
+	echo "$output" > $output_dir/task_output.txt
 	
 	# Basic check
 	[ "$status" -eq 0 ]
