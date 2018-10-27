@@ -114,13 +114,16 @@ We have great plans for OATS. Some of them include:
 
 If you want to run OATS on Windows 10 using WSL, you'll want to:
 
-1. Bind mount `/mnt/c` (or whatever drive OATS is loaded onto) to `/c` and run all oats commands from this new path: ```bash
+1. Bind mount `/mnt/c` (or whatever drive OATS is loaded onto) to `/c` and run all oats commands from this new path: 
+```bash
 sudo mkdir /c
 sudo mount --bind /mnt/c /c
 cd /c/path/to/oats
 ./run.sh --help
-``` This is related to a problem with docker volumes.
+``` 
+This is related to a problem with docker volumes.
 
-2. Pass the `--use_local_volume` flag to all invocations of `./run.sh`. Docker bind mounts on Windows tend to "lag" and OpenDroneMap results could end up being corrupted or will not process entirely. ```bash
+2. Pass the `--use_local_volume` flag to all invocations of `./run.sh`. Docker bind mounts on Windows tend to "lag" and OpenDroneMap results could end up being corrupted or will not process entirely.
+```bash
 ./run.sh all --use_local_volume
 ```
