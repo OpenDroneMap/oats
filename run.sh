@@ -120,7 +120,7 @@ build_tests(){
 			out_file="tests/build/$test_basename""_$tag.bats"
 
 			# Header
-			echo "load functions\n" > $out_file
+			echo "load functions" > $out_file
 
 			# Replace calls to $run_test with run_test appended by a tag parameter
 			sed "s/\$run_test\(.*\)/run_test\1 \"$tag\"/g" $test_file >> $out_file
