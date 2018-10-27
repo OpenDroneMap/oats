@@ -1,4 +1,4 @@
-DATASET_URL=https://github.com/pierotofy/drone_dataset_sheffield_park_3/archive/master.zip
+DATASET_URL=https://github.com/pierotofy/drone_dataset_sand_key/archive/master.zip
 
 @test "Default options" {
   $run_test ""

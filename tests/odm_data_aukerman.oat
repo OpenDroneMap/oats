@@ -1,0 +1,5 @@
+DATASET_URL=https://github.com/OpenDroneMap/odm_data_aukerman/archive/master.zip
+
+@test "Default options" {
+  $run_test ""
+}

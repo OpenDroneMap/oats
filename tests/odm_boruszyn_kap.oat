@@ -1,0 +1,5 @@
+DATASET_URL=https://github.com/merkato/odm_boruszyn_kap/archive/master.zip
+
+@test "Default options with GCP" {
+  $run_test "--gcp /datasets/code/gcp_list.txt"
+}
