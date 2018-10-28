@@ -15,15 +15,15 @@ You will need a working installation of `docker` for your environment. Please vi
 ```bash
 git clone https://github.com/OpenDroneMap/oats --depth 1
 cd oats
-./run.sh --help
+./run --help
 ```
 
-Upon startup `run.sh` will attempt to download and install any missing dependency, including [bats](https://github.com/sstephenson/bats), `wget`, `rsync`, `sed` and `unzip` if they are missing.
+Upon startup `run` will attempt to download and install any missing dependency, including [bats](https://github.com/sstephenson/bats), `wget`, `rsync`, `sed` and `unzip` if they are missing.
 
 To test the `latest` tag release of OpenDroneMap on all defined datasets, simply run:
 
 ```bash
-./run.sh all
+./run all
 ```
 
 This command will download the datasets, run the `opendronemap/opendronemap:latest` docker image against each dataset and check that the processing succeeded.
@@ -43,7 +43,7 @@ To test a new dataset, create a new `tests/my_dataset.oat` file and copy paste t
 Then place your images in `datasets/my_dataset/images` and run:
 
 ```bash
-./run.sh my_dataset
+./run my_dataset
 ```
 
 You can also specify a `DATASET_URL` variable at the top of your `my_dataset.oat` file with a link to your dataset. OATS will automatically download it for you if it's not present in the `datasets/` directory.
@@ -80,10 +80,10 @@ cd OpenDroneMap/
 docker build -t opendronemap/opendronemap:myversion .
 ```
 
-Then pass the `--tags` parameter to `run.sh`:
+Then pass the `--tags` parameter to `run`:
 
 ```bash
-./run.sh all --tags latest,myversion,0.3.1
+./run all --tags latest,myversion,0.3.1
 ```
 
 ## Rerunning Tests
@@ -91,14 +91,22 @@ Then pass the `--tags` parameter to `run.sh`:
 By default OATS chooses the least destructive approach possible. Previous test results are never cleared between runs unless explicitely instructed by the user.
 
 ```bash
-./run.sh all --clear
+./run all --clear
 ```
 
 ## Examine Test Results
 
 All results are placed in `results/`. Each dataset directory will contain a `task_output.txt` file with the console output result. Most errors can be traced with this file.
 
-The output of `run.sh` follows the [TAP Protocol](http://testanything.org/) so you can parse it with one of the many [TAP Consumers](http://testanything.org/consumers.html) available.
+The output of `run` follows the [TAP Protocol](http://testanything.org/) so you can parse it with one of the many [TAP Consumers](http://testanything.org/consumers.html) available.
+
+If you want to aggregate all files into a single directory for ease of view, you can use `harvest`:
+
+```bash
+./harvest all odm_orthophoto.tif /my/path
+```
+
+This command will copy all odm_orthophoto.tif files from all test cases into `/my/path`. See `./harvest --help` for more options.
 
 ## Roadmap
 
@@ -107,7 +115,7 @@ We have great plans for OATS. Some of them include:
 - [ ] Graphic interfaces to compare datasets and versions results
 - [ ] Ability to leverage the cloud to process tasks
 - [ ] Ability to process tasks in parallel
-- [ ] Test groups for defining subset of tasks (small memory footprint, large memory footprint, insane memory footprint, trees, farmland, etc.)
+- [X] Test groups for defining subset of tasks (small memory footprint, large memory footprint, insane memory footprint, trees, farmland, etc.)
 - [ ] Your own ideas, [let us know](https://github.com/OpenDroneMap/oats/issues)!
 
 ## Windows 10 WSL Quirks
@@ -119,11 +127,11 @@ If you want to run OATS on Windows 10 using WSL, you'll want to:
 sudo mkdir /c
 sudo mount --bind /mnt/c /c
 cd /c/path/to/oats
-./run.sh --help
+./run --help
 ``` 
 This is related to a problem with docker volumes.
 
-2. Pass the `--use_local_volume` flag to all invocations of `./run.sh`. Docker bind mounts on Windows tend to "lag" and OpenDroneMap results could end up being corrupted or will not process entirely.
+2. Pass the `--use_local_volume` flag to all invocations of `./run`. Docker bind mounts on Windows tend to "lag" and OpenDroneMap results could end up being corrupted or will not process entirely.
 ```bash
-./run.sh all --use_local_volume
+./run all --use_local_volume
 ```

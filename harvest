@@ -1,0 +1,115 @@
+#!/bin/bash
+source commons.bash
+
+export FILTER_DATASETS=""
+export TAGS="latest"
+export SYMLINK="NO"
+
+# Parse args
+POSITIONAL=()
+while [[ $# -gt 0 ]]
+do
+key="$1"
+case $key in
+    --datasets)
+	# Split string using ',' separator
+	IFS=',' read -ra DST <<< "$2"
+    export FILTER_DATASETS=("${DST[@]}")
+    shift # past argument
+    shift # past value
+    ;;
+    --tags)
+	# Split string using ',' separator
+	IFS=',' read -ra DST <<< "$2"
+    export TAGS=("${DST[@]}")
+    shift # past argument
+    shift # past value
+    ;;
+    --symlink)
+    export SYMLINK=YES
+    shift # past argument
+    ;;
+    --help)
+    export HELP=YES
+    shift # past argument
+    ;;
+    *)    # unknown option
+    POSITIONAL+=("$1") # save it in an array for later
+    shift # past argument
+    ;;
+esac
+done
+set -- "${POSITIONAL[@]}" # restore positional parameter
+
+usage(){
+  echo "Usage: $0 [options] <group> <odm_orthophoto.tif,\"*.laz\",...> <destination directory>"
+  echo
+  echo "Copy test results to a folder."
+  echo
+  echo "Group:"
+  for group in groups/*.bash; do
+  	source $group
+  	echo "	$(basename $group .bash)	${DATASETS[@]}"
+  done
+  echo
+  echo "Options:"
+  echo "	--datasets <dataset1,dataset2,...>	Copy only the specified datasets from the group"
+  echo "	--tags	<tag1,tag2,...>	Copy only results from these tags. (default: latest)"
+  echo "	--symlink	Use symlinks instead of file copies (to save space and for speed)."
+  exit
+}
+
+environment_check(){
+	check_command "find" "Run \033[1msudo apt install -y findutils\033[0m" "sudo apt install -y findutils"
+	check_command "sed" "Run \033[1msudo apt install -y sed\033[0m" "sudo apt install -y sed"
+}
+
+environment_check
+
+group=${POSITIONAL[0]}
+pattern=${POSITIONAL[1]}
+destination=${POSITIONAL[2]}
+
+if [ "$HELP" == "YES" ] || [ -z "$pattern" ] || [ -z "$destination" ]; then
+	usage
+fi
+
+if [ -e "groups/$group.bash" ]; then
+	get_datasets_for_group "$group" "${FILTER_DATASETS[@]}"
+
+	for dataset in "${datasets[@]}"; do
+		for tag in "${TAGS[@]}"; do
+			files=()
+			while IFS=  read -r -d $'\0'; do
+			    files+=("$REPLY")
+			done < <(cd results && find $tag/$dataset/ -name "$pattern" 2>/dev/null -print0)
+
+			if [ ! -z "$files" ]; then
+				if [ ! -e "$destination" ]; then
+					mkdir -p "$destination"
+					echo "Created directory $destination"
+				fi
+			fi
+
+			if [ ! -z "$files" ]; then
+				echo $files
+				for file in "${files[@]}"; do
+					dst_filename=$(sed "s/\//-/g" <<< $file)
+
+					if [ "$SYMLINK" == "YES" ]; then
+						if [ -L "$destination/$dst_filename" ]; then
+							rm "$destination/$dst_filename"
+						fi
+
+						ln -sv "$(pwd)/""results/$file" "$destination/$dst_filename"
+					else
+						cp -v "results/$file" "$destination/$dst_filename"
+					fi
+				done
+			fi
+		done
+	done
+else
+	usage
+fi
+

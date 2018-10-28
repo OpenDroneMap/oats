@@ -13,18 +13,20 @@ run_test(){
 		return 1
 	fi
 
-	check_download_dataset $dataset
-
 	# Sync dataset images to test directory
 	# Publish output directory (for people to check files, do extra test logic)
 	export output_dir="results/$tag/$dataset/$BATS_TEST_NAME/"
-
+	
 	if [ "$CLEAR" == "YES" ]; then
 		rm -fr $output_dir
 	fi
 
-	mkdir -p $output_dir
-	rsync -a --delete datasets/$dataset/* $output_dir
+	if [ "$TESTRUN" == "NO" ]; then
+		check_download_dataset $dataset
+
+		mkdir -p $output_dir
+		rsync -a --delete datasets/$dataset/* $output_dir
+	fi
 
 	DOCKER_CMD="docker run -i --rm \
 			-v $(pwd)/$output_dir:/datasets/code \

@@ -1,6 +1,8 @@
 #!/bin/bash
+source commons.bash
 
 # Parse args
+export FILTER_DATASETS=""
 export TAGS="latest"
 export DOCKER_IMAGE="opendronemap/opendronemap"
 export CMD_OPTIONS=""
@@ -14,8 +16,17 @@ while [[ $# -gt 0 ]]
 do
 key="$1"
 case $key in
+    --datasets)
+	# Split string using ',' separator
+	IFS=',' read -ra DST <<< "$2"
+    export FILTER_DATASETS=("${DST[@]}")
+    shift # past argument
+    shift # past value
+    ;;
     --tags)
-    export TAGS="$2"
+	# Split string using ',' separator
+	IFS=',' read -ra DST <<< "$2"
+    export TAGS=("${DST[@]}")
     shift # past argument
     shift # past value
     ;;
@@ -58,15 +69,18 @@ done
 set -- "${POSITIONAL[@]}" # restore positional parameter
 
 usage(){
-  echo "Usage: $0 [options] <command>"
+  echo "Usage: $0 [options] <group>"
   echo
   echo "OpenDroneMap Automated Testing Suite."
   echo
-  echo "Commands:"
-  echo "	all	Test all datasets"
-  echo "	<dataset1,dataset2,...>	Test only the specified datasets"
+  echo "Group:"
+  for group in groups/*.bash; do
+  	source $group
+  	echo "	$(basename $group .bash)	${DATASETS[@]}"
+  done
   echo 
   echo "Options:"
+  echo "	--datasets <dataset1,dataset2,...>	Test only the specified datasets from the group"
   echo "	--tags	<tag1,tag2,...>	docker tag images to test. Each tag is tested against each dataset. (default: latest)"
   echo "	--options	\"--odm-option 1 --rerun-from odm_meshing ...\"	Options to append to each OpenDroneMap invocation (for example to rerun from a certain step of the pipeline). Make sure to add these in quotes. (default: \"\")"
   echo "	--docker_image	<docker image>	Docker image to use. (default: opendronemap/opendronemap)"
@@ -77,31 +91,10 @@ usage(){
   exit
 }
 
-# $1 = command | $2 = help_text | $3 = install_command (optional)
-check_command(){
-	hash $1 2>/dev/null || not_found=true 
-	if [[ $not_found ]]; then
-		# Can we attempt to install it?
-		if [[ ! -z "$3" ]]; then
-			echo -e "$check_msg_prefix \033[93mnot found, we'll attempt to install\033[39m"
-			eval "$3 || sudo $3"
-
-			# Recurse, but don't pass the install command
-			check_command "$1" "$2"	
-		else
-			check_msg_result="\033[91m can't find $1! Check that the program is installed and that you have added the proper path to the program to your PATH environment variable before launching WebODM. If you change your PATH environment variable, remember to close and reopen your terminal. $2\033[39m"
-		fi
-		echo -e "$check_msg_prefix $check_msg_result"
-	fi
-
-	if [[ $not_found ]]; then
-		exit 1
-	fi
-}
-
 environment_check(){
 	check_command "docker" "https://www.docker.com/"
 	check_command "wget" "Run \033[1msudo apt install -y wget\033[0m" "sudo apt install -y wget"
+	check_command "git" "Run \033[1msudo apt install -y git\033[0m" "sudo apt install -y git"
 	check_command "rsync" "Run \033[1msudo apt install -y rsync\033[0m" "sudo apt install -y rsync"
 	check_command "sed" "Run \033[1msudo apt install -y sed\033[0m" "sudo apt install -y sed"
 	check_command "unzip" "Run \033[1msudo apt install -y unzip\033[0m" "sudo apt install -y unzip"
@@ -112,8 +105,7 @@ build_tests(){
 
 	# Create test files for each tag
 	# Split string using ',' separator
-	IFS=',' read -ra DST <<< "$TAGS"
-	for tag in "${DST[@]}"; do
+	for tag in "${TAGS[@]}"; do
 		for test_file in tests/*.oat; do
 			[ -e "$test_file" ] || continue
 			test_basename=$(basename $test_file .oat)
@@ -135,7 +127,7 @@ build_tests(){
 }
 
 if [ ! -e ./bats ]; then
-	./install.sh
+	git clone --depth 1 https://github.com/sstephenson/bats.git
 fi
 
 environment_check
@@ -162,15 +154,11 @@ rm -f *.log
 
 build_tests
 
-if [ "$POSITIONAL" == "all" ]; then
-	for test_file in tests/build/*.bats; do
-		[ -e "$test_file" ] || continue
-		$BATS $test_file
-	done
-elif [ ! -z "$POSITIONAL" ]; then
-	# Split string using ',' separator
-	IFS=',' read -ra DST <<< "$POSITIONAL"
-	for dataset in "${DST[@]}"; do
+# Get datasets group
+if [ -e "groups/$POSITIONAL.bash" ]; then
+	get_datasets_for_group "$POSITIONAL" "${FILTER_DATASETS[@]}"
+
+	for dataset in "${datasets[@]}"; do
 		if [ -e tests/$dataset.oat ]; then
 			# For each tag
 			for test_file in $(echo "tests/build/$dataset""_*.bats"); do
@@ -184,4 +172,3 @@ elif [ ! -z "$POSITIONAL" ]; then
 else
 	usage
 fi
-
