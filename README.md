@@ -75,7 +75,7 @@ Don't forget to open a [pull request](https://github.com/OpenDroneMap/oats/compa
 
 You can group together various datasets, for example by number of images, by manually specifying which datasets belong to the group or any other logic. Groups are placed in the `groups` folder. By default the `all` group includes all datasets.
 
-You can select only a subset of datasets within a group by using the `--datasets` option. For example:
+You can select a subset of datasets within a group by using the `--datasets` option. For example:
 
 ```bash
 ./run all --datasets brighton,sheffield_park_1
