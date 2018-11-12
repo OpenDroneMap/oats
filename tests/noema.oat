@@ -1,5 +1,5 @@
 DATASET_URL=https://github.com/pierotofy/drone_dataset_noema/archive/master.zip
 
-@test "Default options with GCP" {
-  $run_test "--gcp /datasets/code/gcp_list.txt"
+@test "Default options with GCP and DSM" {
+  $run_test "--gcp /datasets/code/gcp_file.txt --dsm"
 }
