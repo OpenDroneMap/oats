@@ -43,7 +43,7 @@ To test a new dataset, create a new `tests/my_dataset.oat` file and copy paste t
 Then place your images in `datasets/my_dataset/images` and run:
 
 ```bash
-./run my_dataset
+./run all --datasets my_dataset
 ```
 
 You can also specify a `DATASET_URL` variable at the top of your `my_dataset.oat` file with a link to your dataset. OATS will automatically download it for you if it's not present in the `datasets/` directory.
@@ -70,6 +70,18 @@ After the call to `$run_test` is completed you can perform further checks such a
 Checks that fail will be flagged by the testing suite.
 
 Don't forget to open a [pull request](https://github.com/OpenDroneMap/oats/compare) to share your dataset with the community when you are ready! :pray: :+1:
+
+## Create Groups
+
+You can group together various datasets, for example by number of images, by manually specifying which datasets belong to the group or any other logic. Groups are placed in the `groups` folder. By default the `all` group includes all datasets.
+
+You can select a subset of datasets within a group by using the `--datasets` option. For example:
+
+```bash
+./run all --datasets brighton,sheffield_park_1
+```
+
+First selects all datasets defined in `groups/all.bash` and then filters out only those matching the name `brighton` and `sheffield_park_1`. The end result in this case is to run two test cases (`brighton` and `sheffield_park_1`).
 
 ## Test Multiple Versions of OpenDroneMap
 
