@@ -4,7 +4,7 @@ source commons.bash
 # Parse args
 export FILTER_DATASETS=""
 export TAGS="latest"
-export DOCKER_IMAGE="opendronemap/opendronemap"
+export DOCKER_IMAGE="opendronemap/odm"
 export CMD_OPTIONS=""
 export CLEAR=NO
 export TESTRUN=NO
