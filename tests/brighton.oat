@@ -1,8 +1,9 @@
 DATASET_URL=https://github.com/pierotofy/drone_dataset_brighton_beach/archive/master.zip
 
-@test "default with dsm" {
-  $run_test "--dsm"
+@test "default with dsm and dtm" {
+  $run_test "--dsm --dtm"
   [ -e "$output_dir/odm_dem/dsm.tif" ]
+  [ -e "$output_dir/odm_dem/dtm.tif" ]
   [ -e "$output_dir/odm_orthophoto/odm_orthophoto.tif" ]
 }
 
