@@ -1,0 +1,8 @@
+DATASET_URL=https://github.com/pierotofy/drone_dataset_brighton_beach_no_exif/archive/master.zip
+
+@test "fast-orthophoto with geo and dsm" {
+  $run_test "--geo /datasets/code/geo_test.txt --dsm --fast-orthophoto"
+  [ -e "$output_dir/odm_dem/dsm.tif" ]
+  [ -e "$output_dir/odm_orthophoto/odm_orthophoto.tif" ]
+}
+

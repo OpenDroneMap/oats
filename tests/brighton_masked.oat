@@ -1,0 +1,8 @@
+DATASET_URL=https://github.com/pierotofy/drone_dataset_brighton_beach_masked/archive/master.zip
+
+@test "fast-orthophoto with mask" {
+  $run_test "--fast-orthophoto"
+  [ -e "$output_dir/opensfm/mask_list.txt" ]
+  [ -e "$output_dir/odm_orthophoto/odm_orthophoto.tif" ]
+}
+
