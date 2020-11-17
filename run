@@ -162,6 +162,7 @@ if [ -e "groups/$POSITIONAL.bash" ]; then
 		if [ -e tests/$dataset.oat ]; then
 			# For each tag
 			for test_file in $(echo "tests/build/$dataset""_*.bats"); do
+				main() {
 				echo
 				echo Begin dataset: $dataset
 				printf '%0.s-' $(seq 1 $COLUMNS)
@@ -176,6 +177,8 @@ if [ -e "groups/$POSITIONAL.bash" ]; then
 				printf '%0.s-' $(seq 1 $COLUMNS)
 				echo Free Memory: $(awk '/MemFree/ { printf "%.3f \n", $2/1024/1024 }' /proc/meminfo)GB
 				echo Free SWAP: $(awk '/SwapFree/ { printf "%.3f \n", $2/1024/1024 }' /proc/meminfo)GB
+				}
+				time main
 				printf '%0.s=' $(seq 1 $COLUMNS)
 				printf '%0.s=' $(seq 1 $COLUMNS)
 				echo
