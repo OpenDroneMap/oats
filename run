@@ -34,7 +34,7 @@ case $key in
     export DOCKER_IMAGE="$2"
     shift # past argument
     shift # past value
-    ;;	
+    ;;
     --options)
     export CMD_OPTIONS="$2"
     shift # past argument
@@ -78,7 +78,7 @@ usage(){
   	source $group
   	echo "	$(basename $group .bash)	${DATASETS[@]}"
   done
-  echo 
+  echo
   echo "Options:"
   echo "	--datasets <dataset1,dataset2,...>	Test only the specified datasets from the group"
   echo "	--tags	<tag1,tag2,...>	docker tag images to test. Each tag is tested against each dataset. (default: latest)"
@@ -137,7 +137,7 @@ if [ "$HELP" == "YES" ]; then
 fi
 
 if [ "$NUKE" == "YES" ]; then
-	rm -vfr results/* datasets/* tests/build/* 
+	rm -vfr results/* datasets/* tests/build/*
 	exit 0
 fi
 
@@ -162,11 +162,13 @@ if [ -e "groups/$POSITIONAL.bash" ]; then
 		if [ -e tests/$dataset.oat ]; then
 			# For each tag
 			for test_file in $(echo "tests/build/$dataset""_*.bats"); do
+				echo Begin dataset: $dataset
 				[ -e "$test_file" ] || continue
 				$BATS $test_file
+				echo End dataset: $dataset
 			done
 		else
-			echo "WARNING: tests/$dataset.oat does not exist. Ignoring." 
+			echo "WARNING: tests/$dataset.oat does not exist. Ignoring."
 		fi
 	done
 else
