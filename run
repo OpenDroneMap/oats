@@ -164,10 +164,12 @@ if [ -e "groups/$POSITIONAL.bash" ]; then
 			for test_file in $(echo "tests/build/$dataset""_*.bats"); do
 				echo Begin dataset: $dataset
 				echo Begin $dataset Free Memory: $(awk '/MemFree/ { printf "%.3f \n", $2/1024/1024 }' /proc/meminfo)GB
+				echo Begin $dataset Free SWAP: $(awk '/SwapFree/ { printf "%.3f \n", $2/1024/1024 }' /proc/meminfo)GB
 				[ -e "$test_file" ] || continue
 				$BATS $test_file
 				echo End dataset: $dataset
 				echo End $dataset Free Memory: $(awk '/MemFree/ { printf "%.3f \n", $2/1024/1024 }' /proc/meminfo)GB
+				echo End $dataset Free SWAP: $(awk '/SwapFree/ { printf "%.3f \n", $2/1024/1024 }' /proc/meminfo)GB
 			done
 		else
 			echo "WARNING: tests/$dataset.oat does not exist. Ignoring."
