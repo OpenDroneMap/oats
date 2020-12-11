@@ -6,6 +6,12 @@ DATASET_URL=https://github.com/pierotofy/drone_dataset_mica/archive/master.zip
   [ -e "$output_dir/odm_orthophoto/odm_orthophoto.tif" ]
 }
 
+@test "primary band" {
+  $run_test "--primary-band green --min-num-features 12000 --matcher-type bow"
+  [ -e "$output_dir/odm_dem/dsm.tif" ]
+  [ -e "$output_dir/odm_orthophoto/odm_orthophoto.tif" ]
+}
+
 @test "fast orthophoto" {
   $run_test "--fast-orthophoto --min-num-features 12000 --matcher-type bow"
   [ -e "$output_dir/odm_orthophoto/odm_orthophoto.tif" ]
