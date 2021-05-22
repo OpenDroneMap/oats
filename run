@@ -7,6 +7,7 @@ export TAGS="latest"
 export DOCKER_IMAGE="opendronemap/odm"
 export CMD_OPTIONS=""
 export CLEAR=NO
+export BUILD=NO
 export TESTRUN=NO
 export NUKE=NO
 export USE_LOCAL_VOLUME=NO
@@ -43,6 +44,13 @@ case $key in
     --clear)
     export CLEAR=YES
     shift # past argument
+    ;;
+    --build)
+	# Split string using ',' separator
+	IFS=',' read -ra DST <<< "$2"
+    export BUILD=("${DST[@]}")
+    shift # past argument
+    shift # past value
     ;;
     --test)
     export TESTRUN=YES
@@ -86,6 +94,7 @@ usage(){
   echo "	--image_name	<docker image>	Docker image to use. (default: opendronemap/odm)"
   echo "	--use_local_volume	Copy dataset inputs to a temporary location within the docker container instead of directly binding to the host directory. Windows users should use this option to avoid having tests failing due to missing files. (default: no)"
   echo "	--clear	Delete previous test results. (default: no)"
+  echo "	--build	Build these branches (comma separated) before running tests. (default: no)"
   echo "	--test	Do not execute docker commands, but simply write them in oats.log. (default: no)"
   echo "	--nuke	Clear test results, datasets files and any other file in the workspace. (default: no)"
   exit
@@ -139,6 +148,20 @@ fi
 if [ "$NUKE" == "YES" ]; then
 	rm -vfr results/* datasets/* tests/build/* 
 	exit 0
+fi
+
+if [ "$BUILD" != "NO" ]; then
+    if [ ! -e ./ODM_src ]; then
+        git clone https://github.com/OpenDroneMap/ODM ODM_src
+    fi
+    cd ODM_src
+
+    for branch in "${BUILD[@]}"; do
+        git checkout $branch
+        docker build -t opendronemap/odm:$branch -f portable.Dockerfile .
+    done
+
+    cd ..
 fi
 
 # Path to bats executable
