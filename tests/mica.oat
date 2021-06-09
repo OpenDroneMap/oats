@@ -1,4 +1,4 @@
-DATASET_URL=https://github.com/pierotofy/drone_dataset_mica/archive/master.zip
+DATASET_URL=https://github.com/pierotofy/drone_dataset_micasense/archive/master.zip
 
 @test "default with dsm" {
   $run_test "--dsm --min-num-features 15000 --matcher-type bow"
