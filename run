@@ -158,7 +158,7 @@ if [ "$BUILD" != "NO" ]; then
 
     for branch in "${BUILD[@]}"; do
         git checkout $branch
-        docker build -t opendronemap/odm:$branch -f portable.Dockerfile .
+        docker build -t opendronemap/odm:$branch -f portable.Dockerfile . --no-cache
     done
 
     cd ..
