@@ -13,6 +13,11 @@ DATASET_URL=https://github.com/pierotofy/drone_dataset_brighton_beach/archive/ma
   [ -e "$output_dir/odm_orthophoto/odm_orthophoto.tif" ]
 }
 
+@test "planar with 3d tiles" {
+  $run_test "--sfm-algorithm planar --3d-tiles --no-gpu"
+  [ -e "$output_dir/3d_tiles" ]
+}
+
 @test "sampling" {
   $run_test "--pc-classify --pc-filter 0 --pc-sample 0.01"
   [ -e "$output_dir/odm_orthophoto/odm_orthophoto.tif" ]
