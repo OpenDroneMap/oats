@@ -9,7 +9,7 @@ DATASET_URL=https://github.com/pierotofy/drone_dataset_brighton_beach/archive/ma
 }
 
 @test "fast orthophoto" {
-  $run_test "--fast-orthophoto --verbose"
+  $run_test "--fast-orthophoto"
   [ -e "$output_dir/odm_orthophoto/odm_orthophoto.tif" ]
 }
 
