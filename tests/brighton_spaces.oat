@@ -1,7 +1,7 @@
 DATASET_URL=https://github.com/pierotofy/drone_dataset_brighton_spaces/archive/main.zip
 
 @test "Default with spaces in filenames" {
-  $run_test "--debug --dsm"
+  $run_test "--dsm"
   [ -e "$output_dir/odm_dem/dsm.tif" ]
   [ -e "$output_dir/odm_orthophoto/odm_orthophoto.tif" ]
 }
