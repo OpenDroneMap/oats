@@ -31,3 +31,4 @@ DATASET_URL=https://github.com/pierotofy/drone_dataset_brighton_beach/archive/ma
 @test "LAZ alignment" {
   @run_test "--align /datasets/code/model.laz --skip-3dmodel"
   [ -e "$output_dir/opensfm/stats/codem/registration.json" ]
+}
