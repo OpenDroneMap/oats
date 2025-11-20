@@ -26,7 +26,7 @@ To test the `latest` tag release of OpenDroneMap on all defined datasets, simply
 ./run all
 ```
 
-This command will download the datasets, run the `opendronemap/opendronemap:latest` docker image against each dataset and check that the processing succeeded.
+This command will download the datasets, run the `opendronemap/odm:latest` docker image against each dataset and check that the processing succeeded.
 
 ## Test Your Datasets
 
@@ -89,7 +89,7 @@ You can test multiple OpenDroneMap versions against one or more datasets. First 
 
 ```bash
 cd OpenDroneMap/
-docker build -t opendronemap/opendronemap:myversion .
+docker build -t opendronemap/odm:myversion .
 ```
 
 Then pass the `--tags` parameter to `run`:
