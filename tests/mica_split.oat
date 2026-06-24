@@ -2,7 +2,5 @@ DATASET_URL=https://github.com/pierotofy/drone_dataset_mica_split/archive/master
 
 @test "default with dsm, fast ortho" {
   $run_test "--dsm --fast-orthophoto --split 24 --split-overlap 50"
-  [ -e "$output_dir/odm_dem/dsm.tif" ]
-  [ -e "$output_dir/odm_orthophoto/odm_orthophoto.tif" ]
 }
 

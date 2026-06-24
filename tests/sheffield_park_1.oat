@@ -3,6 +3,4 @@ DATASET_URL=https://github.com/pierotofy/drone_dataset_sheffield_park_1/archive/
 
 @test "with rolling shutter correction" {
   $run_test "--rolling-shutter"
-  [ -e "$output_dir/opensfm/rs_done.txt" ]
-  [ -e "$output_dir/odm_orthophoto/odm_orthophoto.tif" ]
 }

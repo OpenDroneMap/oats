@@ -36,6 +36,11 @@ case $key in
     shift # past argument
     shift # past value
     ;;
+    --manifest_path)
+    export MANIFEST_PATH="$2"
+    shift # past argument
+    shift # past value
+    ;;
     --options)
     export CMD_OPTIONS="$2"
     shift # past argument

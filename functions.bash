@@ -15,7 +15,8 @@ run_test(){
 
 	# Sync dataset images to test directory
 	# Publish output directory (for people to check files, do extra test logic)
-	export output_dir="results/$tag/$dataset/$BATS_TEST_NAME/"
+	#export output_dir="results/$tag/$dataset/$BATS_TEST_NAME/"
+	export output_dir="results/latest/$dataset/$BATS_TEST_NAME/"
 	
 	if [ "$CLEAR" == "YES" ]; then
 		rm -fr $output_dir
@@ -28,23 +29,19 @@ run_test(){
 		rsync -a --delete datasets/$dataset/* $output_dir
 	fi
 
-	DOCKER_CMD="docker run -i --rm \
-			-v $(pwd)/$output_dir:/datasets/code \
-			$DOCKER_IMAGE:$tag \
-			--project-path /datasets \
-			$options \
-			$CMD_OPTIONS"
+	DOCKER_CMD="pixi run --manifest-path $MANIFEST_PATH odm -- --project-path $(pwd)/datasets $options $CMD_OPTIONS $dataset"
 
 	# Docker for Windows bind volumes do not keep up when lots of I/O
 	# is being performed. By copying all files to a local directory
 	# and then copying the files back to the volume we avoid problems of missing
 	# files, corrupted files and all hell unleashing loose
 	if [ "$USE_LOCAL_VOLUME" == "YES" ]; then
-		DOCKER_CMD="docker run -i --rm \
-			-v $(pwd)/$output_dir:/staging \
-			--entrypoint bash \
-			$DOCKER_IMAGE:$tag \
-			-c \"mkdir -p /datasets/code && cp -R /staging/* /datasets/code && ./run.sh --project-path /datasets $options $CMD_OPTIONS code; cp -R /datasets/code/* /staging\" "
+		DOCKER_CMD="pixi run --manifest-path /seventb/ODM odm -- --project-path $(pwd)/datasets $options $CMD_OPTIONS $dataset"
+		#DOCKER_CMD="docker run -i --rm \
+		#	-v $(pwd)/$output_dir:/staging \
+		#	--entrypoint bash \
+		#	$DOCKER_IMAGE:$tag \
+		#	-c \"mkdir -p /datasets/code && cp -R /staging/* /datasets/code && ./run.sh --project-path /datasets $options $CMD_OPTIONS code; cp -R /datasets/code/* /staging\" "
 	fi
 
 	if [ "$TESTRUN" == "YES" ]; then
@@ -57,11 +54,11 @@ run_test(){
 		sleep 1
 
 		# Assign permissions to local user
-		docker run -i --rm \
-			-v $(pwd)/$output_dir:/dataset \
-			--entrypoint /bin/chown \
-			$DOCKER_IMAGE:$tag \
-			-R $(id -u):$(id -u) /dataset
+		#docker run -i --rm \
+		#	-v $(pwd)/$output_dir:/dataset \
+		#	--entrypoint /bin/chown \
+		#	$DOCKER_IMAGE:$tag \
+		#	-R $(id -u):$(id -u) /dataset
 	fi
 
 	# Save command output to log

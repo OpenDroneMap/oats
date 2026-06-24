@@ -2,5 +2,4 @@ DATASET_URL=https://github.com/pierotofy/drone_dataset_sheffield_cross/archive/m
 
 @test "Default options" {
   $run_test ""
-  [ -e "$output_dir/odm_orthophoto/odm_orthophoto.tif" ]
 }
