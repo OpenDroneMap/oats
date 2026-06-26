@@ -37,11 +37,6 @@ run_test(){
 	# files, corrupted files and all hell unleashing loose
 	if [ "$USE_LOCAL_VOLUME" == "YES" ]; then
 		DOCKER_CMD="pixi run --manifest-path $MANIFEST_PATH odm -- --project-path $(pwd)/datasets $options $CMD_OPTIONS --copy-to $(pwd)/$output_dir $dataset"
-		#DOCKER_CMD="docker run -i --rm \
-		#	-v $(pwd)/$output_dir:/staging \
-		#	--entrypoint bash \
-		#	$DOCKER_IMAGE:$tag \
-		#	-c \"mkdir -p /datasets/code && cp -R /staging/* /datasets/code && ./run.sh --project-path /datasets $options $CMD_OPTIONS code; cp -R /datasets/code/* /staging\" "
 	fi
 
 	if [ "$TESTRUN" == "YES" ]; then
@@ -52,13 +47,6 @@ run_test(){
 		run eval $DOCKER_CMD
 
 		sleep 1
-
-		# Assign permissions to local user
-		#docker run -i --rm \
-		#	-v $(pwd)/$output_dir:/dataset \
-		#	--entrypoint /bin/chown \
-		#	$DOCKER_IMAGE:$tag \
-		#	-R $(id -u):$(id -u) /dataset
 	fi
 
 	# Save command output to log
