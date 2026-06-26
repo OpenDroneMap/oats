@@ -2,4 +2,5 @@ DATASET_URL=https://github.com/pierotofy/drone_dataset_sand_key/archive/master.z
 
 @test "Default options optimizing disk space" {
   $run_test "--optimize-disk-space"
+  [ -e "$output_dir/odm_orthophoto/odm_orthophoto.tif" ]
 }
