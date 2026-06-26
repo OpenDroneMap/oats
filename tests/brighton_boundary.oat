@@ -1,11 +1,11 @@
 DATASET_URL=https://github.com/OpenDroneMap/drone_dataset_brighton_beach_bounds/archive/master.zip
 
 @test "Test with WGS84 Bounds" {
-  $run_test "--boundary bounds.geojson"
+  $run_test "--boundary $(pwd)/datasets/$DATASET/bounds.geojson"
   [ -e "$output_dir/odm_orthophoto/odm_orthophoto.tif" ]
 }
 
 @test "Test with UTM Bounds" {
-  $run_test "--boundary bounds_utm17n.geojson"
+  $run_test "--boundary $(pwd)/datasets/$DATASET/bounds_utm17n.geojson"
   [ -e "$output_dir/odm_orthophoto/odm_orthophoto.tif" ]
 }

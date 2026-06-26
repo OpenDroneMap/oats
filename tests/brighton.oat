@@ -24,12 +24,12 @@ DATASET_URL=https://github.com/OpenDroneMap/drone_dataset_brighton_beach/archive
 }
 
 @test "GeoTIFF alignment" {
-  $run_test "--align ../dsm.tif --skip-3dmodel"
+  $run_test "--align $(pwd)/datasets/$DATASET/dsm.tif --skip-3dmodel"
   [ -e "$output_dir/opensfm/stats/codem/registration.json" ]
 }
 
 @test "LAZ alignment" {
-  $run_test "--align ../model.laz --skip-3dmodel"
+  $run_test "--align $(pwd)/datasets/$DATASET/model.laz --skip-3dmodel"
   [ -e "$output_dir/opensfm/stats/codem/registration.json" ]
 }
 

@@ -1,11 +1,12 @@
 BATS_BASENAME=$(basename $BATS_TEST_FILENAME .bats)
+# Remove tag from dataset name
+DATASET=$(sed "s/_$tag\$//" <<< $BATS_BASENAME)
 
 run_test(){
 	options="$1"
 	tag="$2"
 
-	# Remove tag from dataset name
-	dataset=$(sed "s/_$tag\$//" <<< $BATS_BASENAME)
+	#dataset=$(sed "s/_$tag\$//" <<< $BATS_BASENAME)
 
 	# Param check...
 	if [ -z $tag ]; then
@@ -16,27 +17,27 @@ run_test(){
 	# Sync dataset images to test directory
 	# Publish output directory (for people to check files, do extra test logic)
 	#export output_dir="results/$tag/$dataset/$BATS_TEST_NAME/"
-	export output_dir="results/pixi/$dataset/$BATS_TEST_NAME/"
+	export output_dir="results/pixi/$DATASET/$BATS_TEST_NAME/"
 	
 	if [ "$CLEAR" == "YES" ]; then
 		rm -fr $output_dir
 	fi
 
 	if [ "$TESTRUN" == "NO" ]; then
-		check_download_dataset $dataset
+		check_download_dataset $DATASET
 
 		mkdir -p $output_dir
-		rsync -a --delete datasets/$dataset/* $output_dir
+		rsync -a --delete datasets/$DATASET/* $output_dir
 	fi
 
-	DOCKER_CMD="pixi run --manifest-path $MANIFEST_PATH odm -- --project-path $(pwd)/datasets $options $CMD_OPTIONS --copy-to $(pwd)/$output_dir $dataset"
+	DOCKER_CMD="pixi run --manifest-path $MANIFEST_PATH odm -- --project-path $(pwd)/datasets $options $CMD_OPTIONS --copy-to $(pwd)/$output_dir $DATASET"
 
 	# Docker for Windows bind volumes do not keep up when lots of I/O
 	# is being performed. By copying all files to a local directory
 	# and then copying the files back to the volume we avoid problems of missing
 	# files, corrupted files and all hell unleashing loose
 	if [ "$USE_LOCAL_VOLUME" == "YES" ]; then
-		DOCKER_CMD="pixi run --manifest-path $MANIFEST_PATH odm -- --project-path $(pwd)/datasets $options $CMD_OPTIONS --copy-to $(pwd)/$output_dir $dataset"
+		DOCKER_CMD="pixi run --manifest-path $MANIFEST_PATH odm -- --project-path $(pwd)/datasets $options $CMD_OPTIONS --copy-to $(pwd)/$output_dir $DATASET"
 	fi
 
 	if [ "$TESTRUN" == "YES" ]; then
