@@ -1,4 +1,4 @@
-DATASET_URL=https://github.com/pierotofy/drone_dataset_brighton_beach_masked/archive/master.zip
+DATASET_URL=https://github.com/OpenDroneMap/drone_dataset_brighton_beach_masked/archive/master.zip
 
 @test "fast-orthophoto with mask" {
   $run_test "--fast-orthophoto"

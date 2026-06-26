@@ -1,4 +1,4 @@
-DATASET_URL=https://github.com/pierotofy/drone_dataset_noema/archive/master.zip
+DATASET_URL=https://github.com/OpenDroneMap/drone_dataset_noema/archive/master.zip
 
 @test "Default options with GCP and DSM" {
   $run_test "--gcp gcp_file.txt --dsm"
