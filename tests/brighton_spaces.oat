@@ -1,4 +1,4 @@
-DATASET_URL=https://github.com/pierotofy/drone_dataset_brighton_spaces/archive/main.zip
+DATASET_URL=https://github.com/OpenDroneMap/drone_dataset_brighton_spaces/archive/main.zip
 
 @test "Default with spaces in filenames" {
   $run_test "--dsm"
