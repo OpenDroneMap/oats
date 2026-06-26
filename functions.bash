@@ -29,14 +29,14 @@ run_test(){
 		rsync -a --delete datasets/$dataset/* $output_dir
 	fi
 
-	DOCKER_CMD="pixi run --manifest-path $MANIFEST_PATH odm -- --project-path $(pwd)/datasets $options $CMD_OPTIONS $dataset"
+	DOCKER_CMD="pixi run --manifest-path $MANIFEST_PATH odm -- --project-path $(pwd)/datasets $options $CMD_OPTIONS --copy-to $(pwd)/$output_dir $dataset"
 
 	# Docker for Windows bind volumes do not keep up when lots of I/O
 	# is being performed. By copying all files to a local directory
 	# and then copying the files back to the volume we avoid problems of missing
 	# files, corrupted files and all hell unleashing loose
 	if [ "$USE_LOCAL_VOLUME" == "YES" ]; then
-		DOCKER_CMD="pixi run --manifest-path /seventb/ODM odm -- --project-path $(pwd)/datasets $options $CMD_OPTIONS $dataset"
+		DOCKER_CMD="pixi run --manifest-path $MANIFEST_PATH odm -- --project-path $(pwd)/datasets $options $CMD_OPTIONS --copy-to $(pwd)/$output_dir $dataset"
 		#DOCKER_CMD="docker run -i --rm \
 		#	-v $(pwd)/$output_dir:/staging \
 		#	--entrypoint bash \
