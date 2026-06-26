@@ -1,4 +1,4 @@
-DATASET_URL=https://github.com/pierotofy/drone_dataset_sand_key/archive/master.zip
+DATASET_URL=https://github.com/OpenDroneMap/drone_dataset_sand_key/archive/master.zip
 
 @test "Default options optimizing disk space" {
   $run_test "--optimize-disk-space"
