@@ -16,7 +16,7 @@ run_test(){
 	# Sync dataset images to test directory
 	# Publish output directory (for people to check files, do extra test logic)
 	#export output_dir="results/$tag/$dataset/$BATS_TEST_NAME/"
-	export output_dir="results/latest/$dataset/$BATS_TEST_NAME/"
+	export output_dir="results/pixi/$dataset/$BATS_TEST_NAME/"
 	
 	if [ "$CLEAR" == "YES" ]; then
 		rm -fr $output_dir
