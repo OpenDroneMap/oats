@@ -1,4 +1,4 @@
-DATASET_URL=https://github.com/pierotofy/dataset_banana/archive/master.zip
+DATASET_URL=https://github.com/OpenDroneMap/dataset_banana/archive/master.zip
 
 @test "default with dsm" {
   $run_test "--dsm"

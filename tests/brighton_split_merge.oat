@@ -1,4 +1,4 @@
-DATASET_URL=https://github.com/pierotofy/drone_dataset_brighton_beach_split_merge/archive/master.zip
+DATASET_URL=https://github.com/OpenDroneMap/drone_dataset_brighton_beach_split_merge/archive/master.zip
 
 @test "default" {
   $run_test "--dsm --pc-ept --split 8 --split-overlap 20"
