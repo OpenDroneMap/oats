@@ -1,0 +1,34 @@
+DATASET_URL=https://github.com/pierotofy/drone_dataset_brighton_beach/archive/master.zip
+
+@test "default with dsm and dtm" {
+  $run_test "--dsm --dtm"
+  [ -e "$output_dir/odm_dem/dsm.tif" ]
+  [ -e "$output_dir/odm_dem/dtm.tif" ]
+  [ -e "$output_dir/odm_orthophoto/odm_orthophoto.tif" ]
+  [ -e "$output_dir/log.json" ]
+}
+
+@test "fast orthophoto" {
+  $run_test "--fast-orthophoto"
+  [ -e "$output_dir/odm_orthophoto/odm_orthophoto.tif" ]
+}
+
+@test "planar with 3d tiles" {
+  $run_test "--sfm-algorithm planar --3d-tiles --no-gpu"
+  [ -e "$output_dir/3d_tiles" ]
+}
+
+@test "sampling" {
+  $run_test "--pc-classify --pc-filter 0 --pc-sample 0.01"
+  [ -e "$output_dir/odm_orthophoto/odm_orthophoto.tif" ]
+}
+
+@test "GeoTIFF alignment" {
+  $run_test "--align /datasets/code/dsm.tif --skip-3dmodel"
+  [ -e "$output_dir/opensfm/stats/codem/registration.json" ]
+}
+
+@test "LAZ alignment" {
+  $run_test "--align /datasets/code/model.laz --skip-3dmodel"
+  [ -e "$output_dir/opensfm/stats/codem/registration.json" ]
+}

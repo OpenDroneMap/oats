@@ -1,0 +1,5 @@
+DATASET_URL=https://github.com/OpenDroneMap/odm_data_copr/archive/master.zip
+
+@test "Default options with GCP" {
+  $run_test "--gcp gcp_list.txt"
+}

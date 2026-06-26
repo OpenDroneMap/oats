@@ -1,0 +1,8 @@
+DATASET_URL=https://github.com/pierotofy/dataset_banana/archive/master.zip
+
+@test "default with dsm" {
+  $run_test "--dsm"
+  [ -e "$output_dir/odm_dem/dsm.tif" ]
+  [ -e "$output_dir/odm_orthophoto/odm_orthophoto.tif" ]
+}
+
