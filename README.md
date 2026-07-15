@@ -92,25 +92,45 @@ cd OpenDroneMap/
 docker build -t opendronemap/odm:myversion .
 ```
 
-Then pass the `--tags` parameter to `run`:
+Then run the suite once per version with the `--tag` parameter:
 
 ```bash
-./run all --tags latest,myversion,0.3.1
+./run all --tag latest
+./run all --tag myversion
 ```
+
+Each run writes its results to a separate directory (see below), so you can compare them afterwards.
 
 ## Rerunning Tests
 
-By default OATS chooses the least destructive approach possible. Previous test results are never cleared between runs unless explicitely instructed by the user.
+Every run starts from a fresh directory and processes each dataset from scratch. Old runs pile up under `results/runs/` and can be deleted whenever you want.
+
+If you need to resume a pipeline from a previous run, invoke ODM directly against that run's output directory:
 
 ```bash
-./run all --clear
+docker run -v <old_output>:/datasets/code opendronemap/odm --project-path /datasets --rerun-from odm_meshing
 ```
 
 ## Examine Test Results
 
-All results are placed in `results/`. Each dataset directory will contain a `task_output.txt` file with the console output result. Most errors can be traced with this file.
+At the end of a run, `run` prints a PASS/FAIL summary for each dataset with its wall time, and lists the failures with the ODM exit status (and signal name if it was killed, e.g. SIGSEGV) and the path to the full log. An ODM exit status of 0 on a failed test means ODM finished but a post-run check in the `.oat` file failed.
 
-The output of `run` follows the [TAP Protocol](http://testanything.org/) so you can parse it with one of the many [TAP Consumers](http://testanything.org/consumers.html) available.
+`run` exits with a non-zero status if any test failed, so it can be used as a CI gate.
+
+### Run artifacts
+
+Each run writes to its own directory (ignored by git):
+
+```
+results/runs/<odm revision>/<image key>/<timestamp>/
+```
+
+The ODM revision is read from the image's `org.opencontainers.image.revision` label and the image key from the image digest (or the image id for local builds); either falls back to `unknown`, and `--test` runs use `unknown/unknown`. Runs of the same ODM version end up next to each other, which makes them easy to compare. The directory contains:
+
+- `run_manifest.json`: the run key, docker image name/id/digest, the ODM source revision, the OATS git hash, host info (kernel, total RAM, GPU model), the `run` argument line, and an entry per test with the ODM exit status, wall time (seconds) and output size.
+- `<tag>/<dataset>/<test>/`: the ODM output for each test, including a `task_output.txt` file with the console output of the OpenDroneMap run. Most errors can be traced with this file.
+- `reports/<dataset>_<tag>.xml`: a [JUnit XML](https://github.com/testmoapp/junitxml) report per dataset for CI.
+- `oats_manifest.tsv`: the per-test records in tab-separated form.
 
 If you want to aggregate all files into a single directory for ease of view, you can use `harvest`:
 

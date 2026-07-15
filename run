@@ -1,12 +1,13 @@
 #!/bin/bash
 source commons.bash
 
+export OATS_ARGV="$*"
+
 # Parse args
 export FILTER_DATASETS=""
-export TAGS="latest"
+export TAG="latest"
 export DOCKER_IMAGE="opendronemap/odm"
 export CMD_OPTIONS=""
-export CLEAR=NO
 export BUILD=NO
 export TESTRUN=NO
 export NUKE=NO
@@ -24,12 +25,14 @@ case $key in
     shift # past argument
     shift # past value
     ;;
-    --tags)
-	# Split string using ',' separator
-	IFS=',' read -ra DST <<< "$2"
-    export TAGS=("${DST[@]}")
+    --tag)
+    export TAG="$2"
     shift # past argument
     shift # past value
+    ;;
+    --tags)
+    echo "--tags was removed: a run tests a single image. Use --tag and run once per version."
+    exit 1
     ;;
 	--image_name)
     export DOCKER_IMAGE="$2"
@@ -40,10 +43,6 @@ case $key in
     export CMD_OPTIONS="$2"
     shift # past argument
     shift # past value
-    ;;
-    --clear)
-    export CLEAR=YES
-    shift # past argument
     ;;
     --build)
 	# Split string using ',' separator
@@ -89,11 +88,10 @@ usage(){
   echo
   echo "Options:"
   echo "	--datasets <dataset1,dataset2,...>	Test only the specified datasets from the group"
-  echo "	--tags	<tag1,tag2,...>	docker tag images to test. Each tag is tested against each dataset. (default: latest)"
+  echo "	--tag	<tag>	docker image tag to test. (default: latest)"
   echo "	--options	\"--odm-option 1 --rerun-from odm_meshing ...\"	Options to append to each OpenDroneMap invocation (for example to rerun from a certain step of the pipeline). Make sure to add these in quotes. (default: \"\")"
   echo "	--image_name	<docker image>	Docker image to use. (default: opendronemap/odm)"
   echo "	--use_local_volume	Copy dataset inputs to a temporary location within the docker container instead of directly binding to the host directory. Windows users should use this option to avoid having tests failing due to missing files. (default: no)"
-  echo "	--clear	Delete previous test results. (default: no)"
   echo "	--build	Build these branches (comma separated) before running tests. (default: no)"
   echo "	--test	Do not execute docker commands, but simply write them in oats.log. (default: no)"
   echo "	--nuke	Clear test results, datasets files and any other file in the workspace. (default: no)"
@@ -107,28 +105,26 @@ environment_check(){
 	check_command "rsync" "Run \033[1msudo apt install -y rsync\033[0m" "sudo apt install -y rsync"
 	check_command "sed" "Run \033[1msudo apt install -y sed\033[0m" "sudo apt install -y sed"
 	check_command "unzip" "Run \033[1msudo apt install -y unzip\033[0m" "sudo apt install -y unzip"
+	check_command "jq" "Run \033[1msudo apt install -y jq\033[0m" "sudo apt install -y jq"
 }
 
 build_tests(){
 	rm -f tests/build/*.bats
 
-	# Create test files for each tag
-	# Split string using ',' separator
-	for tag in "${TAGS[@]}"; do
-		for test_file in tests/*.oat; do
-			[ -e "$test_file" ] || continue
-			test_basename=$(basename $test_file .oat)
-			out_file="tests/build/$test_basename""_$tag.bats"
+	# Create test files for the tag under test
+	for test_file in tests/*.oat; do
+		[ -e "$test_file" ] || continue
+		test_basename=$(basename $test_file .oat)
+		out_file="tests/build/$test_basename""_$TAG.bats"
 
-			# Header
-			echo "load functions" > $out_file
+		# Header
+		echo "load functions" > $out_file
 
-			# Replace calls to $run_test with run_test appended by a tag parameter
-			sed "s/\$run_test\(.*\)/run_test\1 \"$tag\"/g" $test_file >> $out_file
+		# Replace calls to $run_test with run_test appended by a tag parameter
+		sed "s/\$run_test\(.*\)/run_test\1 \"$TAG\"/g" $test_file >> $out_file
 
-			# Add BATS_TEST_BASENAME to each test case description
-			#sed -i.bak "s/@test \"\(.*\)\"/@test \"\1 (\$BATS_BASENAME\)\"/g" $out_file
-		done
+		# Add BATS_TEST_BASENAME to each test case description
+		#sed -i.bak "s/@test \"\(.*\)\"/@test \"\1 (\$BATS_BASENAME\)\"/g" $out_file
 	done
 
 	#rm tests/build/*.bak
@@ -136,7 +132,7 @@ build_tests(){
 }
 
 if [ ! -e ./bats ]; then
-	git clone --depth 1 https://github.com/sstephenson/bats.git
+	git clone --depth 1 https://github.com/bats-core/bats-core.git bats
 fi
 
 environment_check
@@ -158,7 +154,7 @@ if [ "$BUILD" != "NO" ]; then
 
     for branch in "${BUILD[@]}"; do
         git checkout $branch
-        docker build -t opendronemap/odm:$branch -f portable.Dockerfile . --no-cache
+        docker build -t opendronemap/odm:$branch . --no-cache
     done
 
     cd ..
@@ -177,40 +173,193 @@ rm -f *.log
 
 build_tests
 
+# Docker image identity, used to key the run directory and recorded in the
+# manifest. --test runs do not touch docker and key as unknown/unknown.
+IMG="$DOCKER_IMAGE:$TAG"
+IMAGE_ID=""
+IMAGE_DIGEST=""
+ODM_REV=""
+if [ "$TESTRUN" == "NO" ]; then
+	IMAGE_ID=$(docker image inspect --format '{{.Id}}' "$IMG" 2>/dev/null)
+	IMAGE_DIGEST=$(docker image inspect --format '{{if .RepoDigests}}{{index .RepoDigests 0}}{{end}}' "$IMG" 2>/dev/null)
+	ODM_REV=$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$IMG" 2>/dev/null)
+	[ "$ODM_REV" == "<no value>" ] && ODM_REV=""
+fi
+
+# The image key prefers the repo digest, falling back to the image id for
+# locally built images
+img_key=${IMAGE_DIGEST##*sha256:}
+[ -z "$img_key" ] && img_key=${IMAGE_ID##sha256:}
+img_key=${img_key:0:12}
+[ -z "$img_key" ] && img_key=unknown
+rev_key=${ODM_REV:0:12}
+[ -z "$rev_key" ] && rev_key=unknown
+
+# Every run writes into its own identity-keyed directory under results/, so
+# nothing is reused between runs and runs of the same ODM version group
+# together. results/ is ignored by git and old runs can be deleted.
+COLS=${COLUMNS:-80}
+RUN_ID=$(date -u +%Y%m%dT%H%M%SZ)
+RUN_KEY="$rev_key/$img_key/$RUN_ID"
+RUN_DIR="results/runs/$RUN_KEY"
+REPORT_DIR="$RUN_DIR/reports"
+export OATS_RUN_DIR="$RUN_DIR"
+export OATS_MANIFEST="$(pwd)/$RUN_DIR/oats_manifest.tsv"
+mkdir -p "$REPORT_DIR"
+: > "$OATS_MANIFEST"
+
+# One "dataset <tab> bats exit code <tab> elapsed" entry per dataset run
+declare -a RESULTS
+overall_rc=0
+
+hr(){
+	local ch="${1:--}"
+	printf "%0.s$ch" $(seq 1 "$COLS")
+	echo
+}
+
+run_dataset(){
+	local test_file="$1" dataset="$2" idx="$3" total="$4"
+	local free_mem rc start elapsed
+
+	free_mem=$(awk '/MemAvailable/ { printf "%.1f", $2/1024/1024 }' /proc/meminfo)
+
+	echo
+	printf '\033[1m[%d/%d] %s / %s\033[0m  (free mem: %sGB)\n' \
+		"$idx" "$total" "$TAG" "$dataset" "$free_mem"
+	hr
+
+	start=$SECONDS
+	BATS_REPORT_FILENAME="${dataset}_${TAG}.xml" \
+		"$BATS" --timing --report-formatter junit --output "$REPORT_DIR" "$test_file"
+	rc=$?
+	elapsed=$((SECONDS - start))
+
+	printf '\033[2m    finished in %ds\033[0m\n' "$elapsed"
+	RESULTS+=("$dataset"$'\t'"$rc"$'\t'"$elapsed")
+	[ "$rc" -ne 0 ] && overall_rc=1
+	return 0
+}
+
+print_summary(){
+	local pass=0 fail=0 row dataset rc elapsed out status signame
+
+	echo
+	hr '='
+	echo " OATS SUMMARY"
+	hr '='
+
+	if [ "${#RESULTS[@]}" -eq 0 ]; then
+		echo " No tests were run."
+		return
+	fi
+
+	printf ' %-4s  %-24s  %7s\n' "" "DATASET" "TIME"
+	for row in "${RESULTS[@]}"; do
+		IFS=$'\t' read -r dataset rc elapsed <<< "$row"
+		if [ "$rc" -eq 0 ]; then
+			pass=$((pass+1))
+			printf ' \033[32m%-4s\033[0m' PASS
+		else
+			fail=$((fail+1))
+			printf ' \033[31m%-4s\033[0m' FAIL
+		fi
+		printf '  %-24s  %6ss\n' "$dataset" "$elapsed"
+	done
+
+	echo
+	printf ' Total: %d   \033[32mPassed: %d\033[0m   \033[31mFailed: %d\033[0m\n' \
+		"$((pass+fail))" "$pass" "$fail"
+
+	if [ "$fail" -gt 0 ]; then
+		echo
+		printf '\033[1;31m FAILURES\033[0m\n'
+		for row in "${RESULTS[@]}"; do
+			IFS=$'\t' read -r dataset rc elapsed <<< "$row"
+			[ "$rc" -eq 0 ] && continue
+			IFS=$'\t' read -r out status < <(awk -F'\t' -v d="$dataset" \
+				'$2 == d { print $4 "\t" $5; exit }' "$OATS_MANIFEST")
+			if [ -n "$status" ] && [ "$status" != "0" ]; then
+				signame=""
+				[ "$status" -gt 128 ] 2>/dev/null && signame=$(kill -l $((status - 128)) 2>/dev/null)
+				printf ' %s: ODM exited %s%s\n' "$dataset" "$status" "${signame:+ (SIG$signame)}"
+			else
+				printf ' %s: ODM exited 0, a post-run check failed\n' "$dataset"
+			fi
+			[ -n "$out" ] && printf '   log: %stask_output.txt\n' "$out"
+		done
+	fi
+
+	echo
+	printf ' JUnit reports: %s/\n' "$REPORT_DIR"
+}
+
+write_run_manifest(){
+	local manifest="$RUN_DIR/run_manifest.json"
+	local gpu tests datasets
+
+	gpu=$(nvidia-smi -L 2>/dev/null | head -1)
+
+	tests=$(jq -Rs 'split("\n") | map(select(length > 0) | split("\t") | {
+		tag: .[0], dataset: .[1], test: .[2], output_dir: .[3],
+		odm_exit_status: (.[4] | tonumber? // null),
+		wall_time_s: (.[5] | tonumber? // 0),
+		result_dir_bytes: (.[6] | tonumber? // 0) })' "$OATS_MANIFEST")
+
+	datasets=$(printf '%s\n' "${RESULTS[@]}" | jq -Rs 'split("\n") |
+		map(select(length > 0) | split("\t") | {
+		dataset: .[0], bats_exit: (.[1] | tonumber), wall_time_s: (.[2] | tonumber) })')
+
+	jq -n \
+		--arg run_key "$RUN_KEY" \
+		--arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+		--arg image "$IMG" \
+		--arg image_id "$IMAGE_ID" \
+		--arg image_digest "$IMAGE_DIGEST" \
+		--arg odm_git_revision "$ODM_REV" \
+		--arg oats_git_hash "$(git rev-parse HEAD 2>/dev/null)" \
+		--arg kernel "$(uname -sr)" \
+		--argjson total_ram_bytes "$(awk '/MemTotal/ { print $2 * 1024; exit }' /proc/meminfo)" \
+		--arg gpu "$gpu" \
+		--arg group "$POSITIONAL" \
+		--arg argv "$OATS_ARGV" \
+		--argjson datasets "$datasets" \
+		--argjson tests "$tests" \
+		'{ run_key: $run_key, timestamp: $timestamp, image: $image, image_id: $image_id,
+		   image_digest: $image_digest, odm_git_revision: $odm_git_revision,
+		   oats_git_hash: $oats_git_hash,
+		   host: { kernel: $kernel, total_ram_bytes: $total_ram_bytes, gpu: $gpu },
+		   group: $group, argv: $argv,
+		   datasets: $datasets, tests: $tests }' > "$manifest"
+
+	echo
+	printf ' Run manifest: %s\n' "$manifest"
+}
+
 # Get datasets group
 if [ -e "groups/$POSITIONAL.bash" ]; then
 	get_datasets_for_group "$POSITIONAL" "${FILTER_DATASETS[@]}"
 
+	total=0
 	for dataset in "${datasets[@]}"; do
-		if [ -e tests/$dataset.oat ]; then
-			# For each tag
-			for test_file in $(echo "tests/build/$dataset""_*.bats"); do
-				main() {
-				echo
-				echo Begin dataset: $dataset
-				printf '%0.s-' $(seq 1 $COLUMNS)
-				echo Free Memory: $(awk '/MemFree/ { printf "%.3f \n", $2/1024/1024 }' /proc/meminfo)GB
-				echo Free SWAP: $(awk '/SwapFree/ { printf "%.3f \n", $2/1024/1024 }' /proc/meminfo)GB
-				printf '%0.s-' $(seq 1 $COLUMNS)
-				echo
-				[ -e "$test_file" ] || continue
-				$BATS $test_file
-				echo
-				echo End dataset: $dataset
-				printf '%0.s-' $(seq 1 $COLUMNS)
-				echo Free Memory: $(awk '/MemFree/ { printf "%.3f \n", $2/1024/1024 }' /proc/meminfo)GB
-				echo Free SWAP: $(awk '/SwapFree/ { printf "%.3f \n", $2/1024/1024 }' /proc/meminfo)GB
-				}
-				time main
-				printf '%0.s=' $(seq 1 $COLUMNS)
-				printf '%0.s=' $(seq 1 $COLUMNS)
-				echo
-				echo
-			done
+		[ -e "tests/build/${dataset}_${TAG}.bats" ] && total=$((total+1))
+	done
+
+	idx=0
+	for dataset in "${datasets[@]}"; do
+		if [ -e "tests/$dataset.oat" ]; then
+			test_file="tests/build/${dataset}_${TAG}.bats"
+			[ -e "$test_file" ] || continue
+			idx=$((idx+1))
+			run_dataset "$test_file" "$dataset" "$idx" "$total"
 		else
 			echo "WARNING: tests/$dataset.oat does not exist. Ignoring."
 		fi
 	done
+
+	print_summary
+	write_run_manifest
+	exit $overall_rc
 else
 	usage
 fi
