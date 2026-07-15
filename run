@@ -300,11 +300,16 @@ write_run_manifest(){
 
 	gpu=$(nvidia-smi -L 2>/dev/null | head -1)
 
-	tests=$(jq -Rs 'split("\n") | map(select(length > 0) | split("\t") | {
-		tag: .[0], dataset: .[1], test: .[2], output_dir: .[3],
-		odm_exit_status: (.[4] | tonumber? // null),
-		wall_time_s: (.[5] | tonumber? // 0),
-		result_dir_bytes: (.[6] | tonumber? // 0) })' "$OATS_MANIFEST")
+	tests=$(jq -Rs --arg run_dir "$RUN_DIR/" '
+		split("\n") |
+		map(select(length > 0) | split("\t") | {
+			tag: .[0],
+			dataset: .[1],
+			test: .[2],
+			output_dir: (.[3] | ltrimstr($run_dir)),
+			odm_exit_status: (.[4] | tonumber? // null),
+			wall_time_s: (.[5] | tonumber? // 0),
+			result_dir_bytes: (.[6] | tonumber? // 0) })' "$OATS_MANIFEST")
 
 	datasets=$(printf '%s\n' "${RESULTS[@]}" | jq -Rs 'split("\n") |
 		map(select(length > 0) | split("\t") | {
