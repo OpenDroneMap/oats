@@ -1,0 +1,161 @@
+# Runs the OATS suite against an ODM docker image on a self-hosted runner and
+# publishes the JUnit reports and the run artifact.
+#
+# Triggers:
+#   * workflow_dispatch     - manual run, choose image/tag/group.
+#   * push / pull_request   - validate the harness itself on OATS master
+#                             (fast `small` group).
+#   * repository_dispatch   - fired by ODM after it publishes a new image.
+#
+# repository_dispatch contract (event_type: odm-image-published):
+#   {
+#     "event_type": "odm-image-published",
+#     "client_payload": {
+#       "image": "opendronemap/odm",   # image repository (no tag)
+#       "tag":   "latest"              # tag that was just published
+#     }
+#   }
+#
+# Runner requirements and concurrency are documented in docs/ci.md.
+
+name: OATS
+
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: Docker image to test (repository without tag)
+        default: opendronemap/odm
+      tag:
+        description: Image tag to test
+        default: latest
+      group:
+        description: Dataset group to run
+        type: choice
+        default: all
+        options:
+          - all
+          - small
+  push:
+    branches: [master]
+    paths-ignore:
+      - '**.md'
+      - docs/**
+      - LICENSE
+  pull_request:
+    branches: [master]
+    paths-ignore:
+      - '**.md'
+      - docs/**
+      - LICENSE
+  repository_dispatch:
+    types: [odm-image-published]
+
+# Serialize: OATS runs are heavy and RAM-bound, so never let two overlap on a
+# runner. Queued runs wait rather than cancel, so an in-flight run finishes.
+concurrency:
+  group: oats-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  oats:
+    # Skip pull requests coming from forks: they must not execute untrusted
+    # code on the self-hosted runner. Fork PRs can be validated with a manual
+    # workflow_dispatch after review.
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: self-hosted
+    timeout-minutes: 1440
+    steps:
+      - name: Checkout OATS
+        uses: actions/checkout@v7
+
+      - name: Resolve run parameters
+        id: params
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_IMAGE: ${{ github.event.inputs.image }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          INPUT_GROUP: ${{ github.event.inputs.group }}
+          DISPATCH_IMAGE: ${{ github.event.client_payload.image }}
+          DISPATCH_TAG: ${{ github.event.client_payload.tag }}
+        run: |
+          set -euo pipefail
+          case "$EVENT_NAME" in
+            workflow_dispatch)
+              image="${INPUT_IMAGE:-opendronemap/odm}"
+              tag="${INPUT_TAG:-latest}"
+              group="${INPUT_GROUP:-all}"
+              ;;
+            repository_dispatch)
+              image="${DISPATCH_IMAGE:-opendronemap/odm}"
+              tag="${DISPATCH_TAG:-latest}"
+              group="all"
+              ;;
+            *)
+              # push / pull_request validate the harness itself: keep it fast.
+              image="opendronemap/odm"
+              tag="latest"
+              group="small"
+              ;;
+          esac
+          {
+            echo "image=$image"
+            echo "tag=$tag"
+            echo "group=$group"
+          } >> "$GITHUB_OUTPUT"
+          echo "Resolved image=$image tag=$tag group=$group (event=$EVENT_NAME)"
+
+      - name: Pull ODM image
+        run: docker pull "${{ steps.params.outputs.image }}:${{ steps.params.outputs.tag }}"
+
+      - name: Clear previous run results
+        # The self-hosted workspace persists between runs; drop old run
+        # directories so the newest run_manifest.json is unambiguous. Downloaded
+        # datasets under datasets/ are left in place to avoid re-fetching them.
+        run: rm -rf results/runs
+
+      - name: Run OATS
+        id: run
+        run: |
+          ./run "${{ steps.params.outputs.group }}" \
+            --image_name "${{ steps.params.outputs.image }}" \
+            --tag "${{ steps.params.outputs.tag }}"
+
+      - name: Locate run directory
+        id: rundir
+        if: always()
+        run: |
+          set -euo pipefail
+          manifest=$(find results/runs -name run_manifest.json -printf '%T@\t%p\n' 2>/dev/null \
+            | sort -rn | head -1 | cut -f2-)
+          if [ -z "$manifest" ]; then
+            echo "No run_manifest.json found under results/runs" >&2
+            exit 1
+          fi
+          run_dir=$(dirname "$manifest")
+          echo "run_dir=$run_dir" >> "$GITHUB_OUTPUT"
+          echo "Run directory: $run_dir"
+
+      - name: Publish JUnit results
+        if: always() && steps.rundir.outputs.run_dir != ''
+        uses: mikepenz/action-junit-report@v6
+        with:
+          report_paths: ${{ steps.rundir.outputs.run_dir }}/reports/*.xml
+          check_name: OATS results
+          require_tests: true
+          fail_on_failure: true
+
+      # TODO(storage): once the self-hosted MinIO storage service exists
+      # (separate task), push $run_dir (including run_manifest.json) to the
+      # bucket, e.g. `mc cp --recursive "$run_dir" oats/<run_key>`. Until then
+      # the run directory is exposed as a GitHub Actions artifact below.
+      - name: Upload run artifact
+        if: always() && steps.rundir.outputs.run_dir != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: oats-run-${{ github.run_id }}
+          path: ${{ steps.rundir.outputs.run_dir }}
+          if-no-files-found: warn
+          retention-days: 14
