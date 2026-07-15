@@ -1,0 +1,18 @@
+services:
+  garage:
+    image: dxflrs/garage:v1.0.1
+    container_name: oats-garage
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      # Secrets are injected from storage/.env (never committed). See README.
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?set GARAGE_RPC_SECRET in storage/.env}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?set GARAGE_ADMIN_TOKEN in storage/.env}
+    volumes:
+      - ./garage.toml:/etc/garage.toml:ro
+      - meta:/var/lib/garage/meta
+      - data:/var/lib/garage/data
+
+volumes:
+  meta:
+  data:

@@ -1,0 +1,24 @@
+metadata_dir = "/var/lib/garage/meta"
+data_dir = "/var/lib/garage/data"
+db_engine = "lmdb"
+
+replication_factor = 1
+
+# Everything binds to localhost. Public read is served only through the host's
+# reverse proxy (see README), which reaches the web endpoint over 127.0.0.1 — so
+# nothing is exposed on the network directly.
+rpc_bind_addr = "127.0.0.1:3901"
+rpc_public_addr = "127.0.0.1:3901"
+
+[s3_api]
+s3_region = "garage"
+api_bind_addr = "127.0.0.1:3900"
+root_domain = ".s3.garage.localhost"
+
+[s3_web]
+bind_addr = "127.0.0.1:3902"
+root_domain = ".web.garage.localhost"
+index = "index.html"
+
+[admin]
+api_bind_addr = "127.0.0.1:3903"
