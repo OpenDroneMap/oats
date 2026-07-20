@@ -150,20 +150,17 @@ We have great plans for OATS. Some of them include:
 - [X] Test groups for defining subset of tasks (small memory footprint, large memory footprint, insane memory footprint, trees, farmland, etc.)
 - [ ] Your own ideas, [let us know](https://github.com/OpenDroneMap/oats/issues)!
 
-## Windows 10 WSL Quirks
+## Windows (WSL2)
 
-If you want to run OATS on Windows 10 using WSL, you'll want to:
+Run OATS from inside a WSL2 distribution, and keep the checkout and the `datasets/` and `results/` directories on the distribution's own filesystem:
 
-1. Bind mount `/mnt/c` (or whatever drive OATS is loaded onto) to `/c` and run all oats commands from this new path: 
 ```bash
-sudo mkdir /c
-sudo mount --bind /mnt/c /c
-cd /c/path/to/oats
+cd ~
+git clone https://github.com/OpenDroneMap/oats --depth 1
+cd oats
 ./run --help
-``` 
-This is related to a problem with docker volumes.
-
-2. Pass the `--use_local_volume` flag to all invocations of `./run`. Docker bind mounts on Windows tend to "lag" and OpenDroneMap results could end up being corrupted or will not process entirely.
-```bash
-./run all --use_local_volume
 ```
+
+Enable Docker Desktop's WSL2 integration for that distribution first (Settings -> Resources -> WSL Integration).
+
+Paths under `/mnt/c` live on the Windows filesystem and are reached over a translation layer. Bind mounts there are slow and only loosely consistent, which OpenDroneMap's heavy I/O reliably provokes: a stage reads a file the previous stage has not finished making visible, and the run ends with missing or corrupted results. Working inside the distribution avoids the boundary entirely, since Docker bind mounts the distribution's filesystem natively.

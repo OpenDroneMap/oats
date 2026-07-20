@@ -30,18 +30,6 @@ run_test(){
 			$options \
 			$CMD_OPTIONS"
 
-	# Docker for Windows bind volumes do not keep up when lots of I/O
-	# is being performed. By copying all files to a local directory
-	# and then copying the files back to the volume we avoid problems of missing
-	# files, corrupted files and all hell unleashing loose
-	if [ "$USE_LOCAL_VOLUME" == "YES" ]; then
-		DOCKER_CMD="docker run -i --rm \
-			-v $(pwd)/$output_dir:/staging \
-			--entrypoint bash \
-			$DOCKER_IMAGE:$tag \
-			-c \"mkdir -p /datasets/code && cp -R /staging/* /datasets/code && /code/scripts/docker-entrypoint.sh --project-path /datasets $options $CMD_OPTIONS code; cp -R /datasets/code/* /staging\" "
-	fi
-
 	wall_time_s=0
 	result_dir_bytes=0
 
