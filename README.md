@@ -127,7 +127,7 @@ results/runs/<odm revision>/<image key>/<timestamp>/
 
 The ODM revision is read from the image's `org.opencontainers.image.revision` label and the image key from the image digest (or the image id for local builds); either falls back to `unknown`, and `--test` runs use `unknown/unknown`. Runs of the same ODM version end up next to each other, which makes them easy to compare. The directory contains:
 
-- `run_manifest.json`: the run key, docker image name/id/digest, the ODM source revision, the OATS git hash, host info (kernel, total RAM, GPU model), the `run` argument line, and an entry per test with the ODM exit status, wall time (seconds) and output size.
+- `run_manifest.json`: the run key, docker image name/id/digest, the ODM source revision, the OATS git hash, host info (kernel, total RAM, GPU model), the `run` argument line, and an entry per test with the ODM exit status, whether the test passed, wall time (seconds) and output size.
 - `<tag>/<dataset>/<test>/`: the ODM output for each test, including a `task_output.txt` file with the console output of the OpenDroneMap run. Most errors can be traced with this file.
 - `reports/<dataset>_<tag>.xml`: a [JUnit XML](https://github.com/testmoapp/junitxml) report per dataset for CI.
 - `oats_manifest.tsv`: the per-test records in tab-separated form.

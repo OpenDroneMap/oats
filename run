@@ -240,7 +240,7 @@ run_dataset(){
 }
 
 print_summary(){
-	local pass=0 fail=0 row dataset rc elapsed out status signame
+	local pass=0 fail=0 row dataset d rc elapsed test out status result reason signame found
 
 	echo
 	hr '='
@@ -275,16 +275,22 @@ print_summary(){
 		for row in "${RESULTS[@]}"; do
 			IFS=$'\t' read -r dataset rc elapsed <<< "$row"
 			[ "$rc" -eq 0 ] && continue
-			IFS=$'\t' read -r out status < <(awk -F'\t' -v d="$dataset" \
-				'$2 == d { print $4 "\t" $5; exit }' "$OATS_MANIFEST")
-			if [ -n "$status" ] && [ "$status" != "0" ]; then
-				signame=""
-				[ "$status" -gt 128 ] 2>/dev/null && signame=$(kill -l $((status - 128)) 2>/dev/null)
-				printf ' %s: ODM exited %s%s\n' "$dataset" "$status" "${signame:+ (SIG$signame)}"
-			else
-				printf ' %s: ODM exited 0, a post-run check failed\n' "$dataset"
-			fi
-			[ -n "$out" ] && printf '   log: %stask_output.txt\n' "$out"
+			found=0
+			while IFS=$'\t' read -r _ d test out status _ _ result; do
+				[ "$d" == "$dataset" ] && [ "$result" == "fail" ] || continue
+				found=1
+				if [ "$status" != "0" ]; then
+					signame=""
+					[ "$status" -gt 128 ] 2>/dev/null && signame=$(kill -l $((status - 128)) 2>/dev/null)
+					reason="ODM exited $status${signame:+ (SIG$signame)}"
+				else
+					reason="ODM exited 0, a post-run check failed"
+				fi
+				printf ' %s / %s: %s\n' "$dataset" "$test" "$reason"
+				printf '   log: %stask_output.txt\n' "$out"
+			done < "$OATS_MANIFEST"
+			[ "$found" -eq 0 ] && \
+				printf ' %s: a test failed before ODM ran (see the bats output above)\n' "$dataset"
 		done
 	fi
 
@@ -307,7 +313,8 @@ write_run_manifest(){
 			output_dir: (.[3] | ltrimstr($run_dir)),
 			odm_exit_status: (.[4] | tonumber? // null),
 			wall_time_s: (.[5] | tonumber? // 0),
-			result_dir_bytes: (.[6] | tonumber? // 0) })' "$OATS_MANIFEST")
+			result_dir_bytes: (.[6] | tonumber? // 0),
+			passed: (.[7] == "pass") })' "$OATS_MANIFEST")
 
 	datasets=$(printf '%s\n' "${RESULTS[@]}" | jq -Rs 'split("\n") |
 		map(select(length > 0) | split("\t") | {

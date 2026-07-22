@@ -59,16 +59,24 @@ run_test(){
 	# Save command output to log
 	echo "$output" > $output_dir/task_output.txt
 
-	# $status is the ODM exit code, used to tell an ODM failure from a
-	# failed post-run check
-	if [ -n "${OATS_MANIFEST:-}" ]; then
-		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-			"$tag" "$dataset" "$BATS_TEST_DESCRIPTION" "$output_dir" "$status" \
-			"${wall_time_s:-0}" "${result_dir_bytes:-0}" >> "$OATS_MANIFEST"
-	fi
+	# The ODM exit code, used to tell an ODM failure from a failed post-run
+	# check. The manifest row is written in teardown, which is the only
+	# place that knows whether the post-run checks passed.
+	odm_status=$status
 
 	# Basic check
 	[ "$status" -eq 0 ]
+}
+
+teardown(){
+	[ -n "${odm_status:-}" ] || return 0
+
+	if [ -n "${OATS_MANIFEST:-}" ]; then
+		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+			"$tag" "$dataset" "$BATS_TEST_DESCRIPTION" "$output_dir" "$odm_status" \
+			"${wall_time_s:-0}" "${result_dir_bytes:-0}" \
+			"$([ -n "${BATS_TEST_COMPLETED:-}" ] && echo pass || echo fail)" >> "$OATS_MANIFEST"
+	fi
 }
 
 check_download_dataset(){
