@@ -1,5 +1,6 @@
 #!/bin/bash
 source commons.bash
+source report.bash
 
 export OATS_ARGV="$*"
 
@@ -29,10 +30,6 @@ case $key in
     shift # past argument
     shift # past value
     ;;
-    --tags)
-    echo "--tags was removed: a run tests a single image. Use --tag and run once per version."
-    exit 1
-    ;;
 	--image_name)
     export DOCKER_IMAGE="$2"
     shift # past argument
@@ -57,10 +54,6 @@ case $key in
 	--nuke)
     export NUKE=YES
     shift # past argument
-    ;;
-	--use_local_volume)
-    echo "--use_local_volume was removed: it worked around slow Docker bind mounts on Windows. Run OATS from inside the WSL2 filesystem instead of /mnt/c, where bind mounts are native."
-    exit 1
     ;;
     --help)
     export HELP=YES
@@ -106,6 +99,34 @@ environment_check(){
 	check_command "jq" "Run \033[1msudo apt install -y jq\033[0m" "sudo apt install -y jq"
 }
 
+ensure_bats(){
+	if [ ! -e ./bats ]; then
+		git clone --depth 1 https://github.com/bats-core/bats-core.git bats
+	fi
+
+	# Path to bats executable
+	BATS=./bats/bin/bats
+
+	if [ ! -e "$BATS" ]; then
+		echo "Bats not found: $BATS"
+		exit 1
+	fi
+}
+
+build_branches(){
+	if [ ! -e ./ODM_src ]; then
+		git clone https://github.com/OpenDroneMap/ODM ODM_src
+	fi
+	cd ODM_src
+
+	for branch in "${BUILD[@]}"; do
+		git checkout $branch
+		docker build -t opendronemap/odm:$branch . --no-cache
+	done
+
+	cd ..
+}
+
 build_tests(){
 	rm -f tests/build/*.bats
 
@@ -129,91 +150,44 @@ build_tests(){
 	cp functions.bash tests/build/
 }
 
-if [ ! -e ./bats ]; then
-	git clone --depth 1 https://github.com/bats-core/bats-core.git bats
-fi
-
-environment_check
-
-if [ "$HELP" == "YES" ]; then
-	usage
-fi
-
-if [ "$NUKE" == "YES" ]; then
-	rm -vfr results/* datasets/* tests/build/*
-	exit 0
-fi
-
-if [ "$BUILD" != "NO" ]; then
-    if [ ! -e ./ODM_src ]; then
-        git clone https://github.com/OpenDroneMap/ODM ODM_src
-    fi
-    cd ODM_src
-
-    for branch in "${BUILD[@]}"; do
-        git checkout $branch
-        docker build -t opendronemap/odm:$branch . --no-cache
-    done
-
-    cd ..
-fi
-
-# Path to bats executable
-BATS=./bats/bin/bats
-
-if [ ! -e "$BATS" ]; then
-	echo "Bats not found: $BATS"
-	exit 1
-fi
-
-# Clean previous logs
-rm -f *.log
-
-build_tests
-
 # Docker image identity, used to key the run directory and recorded in the
 # manifest. --test runs do not touch docker and key as unknown/unknown.
-IMG="$DOCKER_IMAGE:$TAG"
-IMAGE_ID=""
-IMAGE_DIGEST=""
-ODM_REV=""
-if [ "$TESTRUN" == "NO" ]; then
-	IMAGE_ID=$(docker image inspect --format '{{.Id}}' "$IMG" 2>/dev/null)
-	IMAGE_DIGEST=$(docker image inspect --format '{{if .RepoDigests}}{{index .RepoDigests 0}}{{end}}' "$IMG" 2>/dev/null)
-	ODM_REV=$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$IMG" 2>/dev/null)
-	[ "$ODM_REV" == "<no value>" ] && ODM_REV=""
-fi
-
-# The image key prefers the repo digest, falling back to the image id for
-# locally built images
-img_key=${IMAGE_DIGEST##*sha256:}
-[ -z "$img_key" ] && img_key=${IMAGE_ID##sha256:}
-img_key=${img_key:0:12}
-[ -z "$img_key" ] && img_key=unknown
-rev_key=${ODM_REV:0:12}
-[ -z "$rev_key" ] && rev_key=unknown
+resolve_image_identity(){
+	IMG="$DOCKER_IMAGE:$TAG"
+	IMAGE_ID=""
+	IMAGE_DIGEST=""
+	ODM_REV=""
+	if [ "$TESTRUN" == "NO" ]; then
+		IMAGE_ID=$(docker image inspect --format '{{.Id}}' "$IMG" 2>/dev/null)
+		IMAGE_DIGEST=$(docker image inspect --format '{{if .RepoDigests}}{{index .RepoDigests 0}}{{end}}' "$IMG" 2>/dev/null)
+		ODM_REV=$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$IMG" 2>/dev/null)
+		[ "$ODM_REV" == "<no value>" ] && ODM_REV=""
+	fi
+}
 
 # Every run writes into its own identity-keyed directory under results/, so
 # nothing is reused between runs and runs of the same ODM version group
 # together. results/ is ignored by git and old runs can be deleted.
-COLS=${COLUMNS:-80}
-RUN_ID=$(date -u +%Y%m%dT%H%M%SZ)
-RUN_KEY="$rev_key/$img_key/$RUN_ID"
-RUN_DIR="results/runs/$RUN_KEY"
-REPORT_DIR="$RUN_DIR/reports"
-export OATS_RUN_DIR="$RUN_DIR"
-export OATS_MANIFEST="$(pwd)/$RUN_DIR/oats_manifest.tsv"
-mkdir -p "$REPORT_DIR"
-: > "$OATS_MANIFEST"
+setup_run_dir(){
+	local img_key rev_key
 
-# One "dataset <tab> bats exit code <tab> elapsed" entry per dataset run
-declare -a RESULTS
-overall_rc=0
+	# The image key prefers the repo digest, falling back to the image id for
+	# locally built images
+	img_key=${IMAGE_DIGEST##*sha256:}
+	[ -z "$img_key" ] && img_key=${IMAGE_ID##sha256:}
+	img_key=${img_key:0:12}
+	[ -z "$img_key" ] && img_key=unknown
+	rev_key=${ODM_REV:0:12}
+	[ -z "$rev_key" ] && rev_key=unknown
 
-hr(){
-	local ch="${1:--}"
-	printf "%0.s$ch" $(seq 1 "$COLS")
-	echo
+	RUN_ID=$(date -u +%Y%m%dT%H%M%SZ)
+	RUN_KEY="$rev_key/$img_key/$RUN_ID"
+	RUN_DIR="results/runs/$RUN_KEY"
+	REPORT_DIR="$RUN_DIR/reports"
+	export OATS_RUN_DIR="$RUN_DIR"
+	export OATS_MANIFEST="$(pwd)/$RUN_DIR/oats_manifest.tsv"
+	mkdir -p "$REPORT_DIR"
+	: > "$OATS_MANIFEST"
 }
 
 run_dataset(){
@@ -239,130 +213,9 @@ run_dataset(){
 	return 0
 }
 
-# A dataset counts as skipped when bats skipped every test in it, which the
-# JUnit report already records on its testsuite element
-dataset_skipped(){
-	local report="$REPORT_DIR/${1}_${TAG}.xml" tests skipped
+run_group(){
+	local total idx dataset test_file
 
-	[ -e "$report" ] || return 1
-	tests=$(grep -o 'tests="[0-9]*"' "$report" | head -1 | tr -dc 0-9)
-	skipped=$(grep -o 'skipped="[0-9]*"' "$report" | head -1 | tr -dc 0-9)
-
-	[ -n "$tests" ] && [ "$tests" -gt 0 ] && [ "$tests" -eq "$skipped" ]
-}
-
-print_summary(){
-	local pass=0 fail=0 skip=0 row dataset d rc elapsed test out status result reason signame found
-
-	echo
-	hr '='
-	echo " OATS SUMMARY"
-	hr '='
-
-	if [ "${#RESULTS[@]}" -eq 0 ]; then
-		echo " No tests were run."
-		return
-	fi
-
-	printf ' %-4s  %-24s  %7s\n' "" "DATASET" "TIME"
-	for row in "${RESULTS[@]}"; do
-		IFS=$'\t' read -r dataset rc elapsed <<< "$row"
-		if [ "$rc" -ne 0 ]; then
-			fail=$((fail+1))
-			printf ' \033[31m%-4s\033[0m' FAIL
-		elif dataset_skipped "$dataset"; then
-			skip=$((skip+1))
-			printf ' \033[33m%-4s\033[0m' SKIP
-		else
-			pass=$((pass+1))
-			printf ' \033[32m%-4s\033[0m' PASS
-		fi
-		printf '  %-24s  %6ss\n' "$dataset" "$elapsed"
-	done
-
-	echo
-	printf ' Total: %d   \033[32mPassed: %d\033[0m   \033[31mFailed: %d\033[0m   \033[33mSkipped: %d\033[0m\n' \
-		"$((pass+fail+skip))" "$pass" "$fail" "$skip"
-
-	if [ "$fail" -gt 0 ]; then
-		echo
-		printf '\033[1;31m FAILURES\033[0m\n'
-		for row in "${RESULTS[@]}"; do
-			IFS=$'\t' read -r dataset rc elapsed <<< "$row"
-			[ "$rc" -eq 0 ] && continue
-			found=0
-			while IFS=$'\t' read -r _ d test out status _ _ result; do
-				[ "$d" == "$dataset" ] && [ "$result" == "fail" ] || continue
-				found=1
-				if [ "$status" != "0" ]; then
-					signame=""
-					[ "$status" -gt 128 ] 2>/dev/null && signame=$(kill -l $((status - 128)) 2>/dev/null)
-					reason="ODM exited $status${signame:+ (SIG$signame)}"
-				else
-					reason="ODM exited 0, a post-run check failed"
-				fi
-				printf ' %s / %s: %s\n' "$dataset" "$test" "$reason"
-				printf '   log: %stask_output.txt\n' "$out"
-			done < "$OATS_MANIFEST"
-			[ "$found" -eq 0 ] && \
-				printf ' %s: a test failed before ODM ran (see the bats output above)\n' "$dataset"
-		done
-	fi
-
-	echo
-	printf ' JUnit reports: %s/\n' "$REPORT_DIR"
-}
-
-write_run_manifest(){
-	local manifest="$RUN_DIR/run_manifest.json"
-	local gpu tests datasets
-
-	gpu=$(nvidia-smi -L 2>/dev/null | head -1)
-
-	tests=$(jq -Rs --arg run_dir "$RUN_DIR/" '
-		split("\n") |
-		map(select(length > 0) | split("\t") | {
-			tag: .[0],
-			dataset: .[1],
-			test: .[2],
-			output_dir: (.[3] | ltrimstr($run_dir)),
-			odm_exit_status: (.[4] | tonumber? // null),
-			wall_time_s: (.[5] | tonumber? // 0),
-			result_dir_bytes: (.[6] | tonumber? // 0),
-			passed: (.[7] == "pass") })' "$OATS_MANIFEST")
-
-	datasets=$(printf '%s\n' "${RESULTS[@]}" | jq -Rs 'split("\n") |
-		map(select(length > 0) | split("\t") | {
-		dataset: .[0], bats_exit: (.[1] | tonumber), wall_time_s: (.[2] | tonumber) })')
-
-	jq -n \
-		--arg run_key "$RUN_KEY" \
-		--arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-		--arg image "$IMG" \
-		--arg image_id "$IMAGE_ID" \
-		--arg image_digest "$IMAGE_DIGEST" \
-		--arg odm_git_revision "$ODM_REV" \
-		--arg oats_git_hash "$(git rev-parse HEAD 2>/dev/null)" \
-		--arg kernel "$(uname -sr)" \
-		--argjson total_ram_bytes "$(awk '/MemTotal/ { print $2 * 1024; exit }' /proc/meminfo)" \
-		--arg gpu "$gpu" \
-		--arg group "$POSITIONAL" \
-		--arg argv "$OATS_ARGV" \
-		--argjson datasets "$datasets" \
-		--argjson tests "$tests" \
-		'{ run_key: $run_key, timestamp: $timestamp, image: $image, image_id: $image_id,
-		   image_digest: $image_digest, odm_git_revision: $odm_git_revision,
-		   oats_git_hash: $oats_git_hash,
-		   host: { kernel: $kernel, total_ram_bytes: $total_ram_bytes, gpu: $gpu },
-		   group: $group, argv: $argv,
-		   datasets: $datasets, tests: $tests }' > "$manifest"
-
-	echo
-	printf ' Run manifest: %s\n' "$manifest"
-}
-
-# Get datasets group
-if [ -e "groups/$POSITIONAL.bash" ]; then
 	get_datasets_for_group "$POSITIONAL" "${FILTER_DATASETS[@]}"
 
 	total=0
@@ -381,10 +234,41 @@ if [ -e "groups/$POSITIONAL.bash" ]; then
 			echo "WARNING: tests/$dataset.oat does not exist. Ignoring."
 		fi
 	done
+}
 
-	print_summary
-	write_run_manifest
-	exit $overall_rc
-else
+environment_check
+
+if [ "$HELP" == "YES" ]; then
 	usage
 fi
+
+if [ "$NUKE" == "YES" ]; then
+	rm -vfr results/* datasets/* tests/build/*
+	exit 0
+fi
+
+if [ ! -e "groups/$POSITIONAL.bash" ]; then
+	usage
+fi
+
+if [ "$BUILD" != "NO" ]; then
+	build_branches
+fi
+
+ensure_bats
+
+# Clean previous logs
+rm -f *.log
+
+build_tests
+resolve_image_identity
+setup_run_dir
+
+# One "dataset <tab> bats exit code <tab> elapsed" entry per dataset run
+RESULTS=()
+overall_rc=0
+
+run_group
+print_summary
+write_run_manifest
+exit $overall_rc
