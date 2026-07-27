@@ -15,7 +15,7 @@ run_test(){
 
 	# Sync dataset images to test directory
 	# Publish output directory (for people to check files, do extra test logic)
-	export output_dir="$OATS_RUN_DIR/$tag/$dataset/$BATS_TEST_NAME/"
+	export output_dir="$OATS_RUN_DIR/tests/$dataset/$BATS_TEST_NAME/"
 	mkdir -p $output_dir
 
 	if [ "$TESTRUN" == "NO" ]; then

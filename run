@@ -239,8 +239,20 @@ run_dataset(){
 	return 0
 }
 
+# A dataset counts as skipped when bats skipped every test in it, which the
+# JUnit report already records on its testsuite element
+dataset_skipped(){
+	local report="$REPORT_DIR/${1}_${TAG}.xml" tests skipped
+
+	[ -e "$report" ] || return 1
+	tests=$(grep -o 'tests="[0-9]*"' "$report" | head -1 | tr -dc 0-9)
+	skipped=$(grep -o 'skipped="[0-9]*"' "$report" | head -1 | tr -dc 0-9)
+
+	[ -n "$tests" ] && [ "$tests" -gt 0 ] && [ "$tests" -eq "$skipped" ]
+}
+
 print_summary(){
-	local pass=0 fail=0 row dataset d rc elapsed test out status result reason signame found
+	local pass=0 fail=0 skip=0 row dataset d rc elapsed test out status result reason signame found
 
 	echo
 	hr '='
@@ -255,19 +267,22 @@ print_summary(){
 	printf ' %-4s  %-24s  %7s\n' "" "DATASET" "TIME"
 	for row in "${RESULTS[@]}"; do
 		IFS=$'\t' read -r dataset rc elapsed <<< "$row"
-		if [ "$rc" -eq 0 ]; then
-			pass=$((pass+1))
-			printf ' \033[32m%-4s\033[0m' PASS
-		else
+		if [ "$rc" -ne 0 ]; then
 			fail=$((fail+1))
 			printf ' \033[31m%-4s\033[0m' FAIL
+		elif dataset_skipped "$dataset"; then
+			skip=$((skip+1))
+			printf ' \033[33m%-4s\033[0m' SKIP
+		else
+			pass=$((pass+1))
+			printf ' \033[32m%-4s\033[0m' PASS
 		fi
 		printf '  %-24s  %6ss\n' "$dataset" "$elapsed"
 	done
 
 	echo
-	printf ' Total: %d   \033[32mPassed: %d\033[0m   \033[31mFailed: %d\033[0m\n' \
-		"$((pass+fail))" "$pass" "$fail"
+	printf ' Total: %d   \033[32mPassed: %d\033[0m   \033[31mFailed: %d\033[0m   \033[33mSkipped: %d\033[0m\n' \
+		"$((pass+fail+skip))" "$pass" "$fail" "$skip"
 
 	if [ "$fail" -gt 0 ]; then
 		echo

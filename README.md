@@ -113,7 +113,7 @@ docker run -v <old_output>:/datasets/code opendronemap/odm --project-path /datas
 
 ## Examine Test Results
 
-At the end of a run, `run` prints a PASS/FAIL summary for each dataset with its wall time, and lists the failures with the ODM exit status (and signal name if it was killed, e.g. SIGSEGV) and the path to the full log. An ODM exit status of 0 on a failed test means ODM finished but a post-run check in the `.oat` file failed.
+At the end of a run, `run` prints a PASS/FAIL/SKIP summary for each dataset with its wall time, and lists the failures with the ODM exit status (and signal name if it was killed, e.g. SIGSEGV) and the path to the full log. An ODM exit status of 0 on a failed test means ODM finished but a post-run check in the `.oat` file failed. A dataset is reported as SKIP when bats skipped every one of its tests, which a `.oat` file asks for with `skip "<reason>"`; the reason appears in the bats output above the summary.
 
 `run` exits with a non-zero status if any test failed, so it can be used as a CI gate.
 
@@ -128,7 +128,7 @@ results/runs/<odm revision>/<image key>/<timestamp>/
 The ODM revision is read from the image's `org.opencontainers.image.revision` label and the image key from the image digest (or the image id for local builds); either falls back to `unknown`, and `--test` runs use `unknown/unknown`. Runs of the same ODM version end up next to each other, which makes them easy to compare. The directory contains:
 
 - `run_manifest.json`: the run key, docker image name/id/digest, the ODM source revision, the OATS git hash, host info (kernel, total RAM, GPU model), the `run` argument line, and an entry per test with the ODM exit status, whether the test passed, wall time (seconds) and output size.
-- `<tag>/<dataset>/<test>/`: the ODM output for each test, including a `task_output.txt` file with the console output of the OpenDroneMap run. Most errors can be traced with this file.
+- `tests/<dataset>/<test>/`: the ODM output for each test, including a `task_output.txt` file with the console output of the OpenDroneMap run. Most errors can be traced with this file.
 - `reports/<dataset>_<tag>.xml`: a [JUnit XML](https://github.com/testmoapp/junitxml) report per dataset for CI.
 - `oats_manifest.tsv`: the per-test records in tab-separated form.
 
