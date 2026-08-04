@@ -24,8 +24,7 @@ DATASET_URL=https://github.com/OpenDroneMap/drone_dataset_brighton_beach/archive
 }
 
 # Every ODM flag that is a boolean path toggle or an additive output, to cover
-# as much of the pipeline as one run can. Values and tuning knobs are out of
-# scope here, they belong in a parameter test of their own.
+# as much of the pipeline as one run can.
 #
 # Flags left out on purpose:
 #   --cog                        build_overviews is skipped when --cog is set
@@ -37,8 +36,8 @@ DATASET_URL=https://github.com/OpenDroneMap/drone_dataset_brighton_beach/archive
 #   --boundary                   overrides --auto-boundary
 #   --ignore-gsd                 changes resolutions rather than paths
 #   --skip-report                drops report outputs
-# --orthophoto-cutline turns --crop on by itself (ODM sets it to 0.01).
-@test "kitchen sink" {
+#   --orthophoto-cutline turns --crop on by itself (ODM sets it to 0.01).
+@test "all flags" {
   $run_test "--dsm --dtm --gltf --tiles --orthophoto-png --orthophoto-kmz --orthophoto-cutline --orthophoto-no-tiled --pc-las --pc-csv --pc-copc --pc-rectify --pc-skip-geometric --dem-euclidean-map --use-3dmesh --texturing-keep-unseen-faces --texturing-skip-global-seam-leveling --build-overviews --auto-boundary --use-hybrid-bundle-adjustment --use-fixed-camera-params"
 
   [ -e "$output_dir/odm_texturing/odm_textured_model_geo.glb" ]
