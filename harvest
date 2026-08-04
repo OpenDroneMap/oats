@@ -82,7 +82,7 @@ if [ -e "groups/$group.bash" ]; then
 			files=()
 			while IFS=  read -r -d $'\0'; do
 			    files+=("$REPLY")
-			done < <(cd results && find $tag/$dataset/ -name "$pattern" 2>/dev/null -print0)
+			done < <(cd results && find runs/ -path "*/$tag/$dataset/*" -name "$pattern" 2>/dev/null -print0)
 
 			if [ ! -z "$files" ]; then
 				if [ ! -e "$destination" ]; then

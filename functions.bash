@@ -15,16 +15,11 @@ run_test(){
 
 	# Sync dataset images to test directory
 	# Publish output directory (for people to check files, do extra test logic)
-	export output_dir="results/$tag/$dataset/$BATS_TEST_NAME/"
-	
-	if [ "$CLEAR" == "YES" ]; then
-		rm -fr $output_dir
-	fi
+	export output_dir="$OATS_RUN_DIR/tests/$dataset/$BATS_TEST_NAME/"
+	mkdir -p $output_dir
 
 	if [ "$TESTRUN" == "NO" ]; then
 		check_download_dataset $dataset
-
-		mkdir -p $output_dir
 		rsync -a --delete datasets/$dataset/* $output_dir
 	fi
 
@@ -35,24 +30,19 @@ run_test(){
 			$options \
 			$CMD_OPTIONS"
 
-	# Docker for Windows bind volumes do not keep up when lots of I/O
-	# is being performed. By copying all files to a local directory
-	# and then copying the files back to the volume we avoid problems of missing
-	# files, corrupted files and all hell unleashing loose
-	if [ "$USE_LOCAL_VOLUME" == "YES" ]; then
-		DOCKER_CMD="docker run -i --rm \
-			-v $(pwd)/$output_dir:/staging \
-			--entrypoint bash \
-			$DOCKER_IMAGE:$tag \
-			-c \"mkdir -p /datasets/code && cp -R /staging/* /datasets/code && ./run.sh --project-path /datasets $options $CMD_OPTIONS code; cp -R /datasets/code/* /staging\" "
-	fi
+	wall_time_s=0
+	result_dir_bytes=0
 
 	if [ "$TESTRUN" == "YES" ]; then
 		log "About to run: $DOCKER_CMD"
 		run echo "$output_dir output"
 	else
 		log "About to run: $DOCKER_CMD"
+
+		local start
+		start=$SECONDS
 		run eval $DOCKER_CMD
+		wall_time_s=$((SECONDS - start))
 
 		sleep 1
 
@@ -62,13 +52,31 @@ run_test(){
 			--entrypoint /bin/chown \
 			$DOCKER_IMAGE:$tag \
 			-R $(id -u):$(id -u) /dataset
+
+		result_dir_bytes=$(du -sb "$output_dir" 2>/dev/null | cut -f1)
 	fi
 
 	# Save command output to log
 	echo "$output" > $output_dir/task_output.txt
-	
+
+	# The ODM exit code, used to tell an ODM failure from a failed post-run
+	# check. The manifest row is written in teardown, which is the only
+	# place that knows whether the post-run checks passed.
+	odm_status=$status
+
 	# Basic check
 	[ "$status" -eq 0 ]
+}
+
+teardown(){
+	[ -n "${odm_status:-}" ] || return 0
+
+	if [ -n "${OATS_MANIFEST:-}" ]; then
+		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+			"$tag" "$dataset" "$BATS_TEST_DESCRIPTION" "$output_dir" "$odm_status" \
+			"${wall_time_s:-0}" "${result_dir_bytes:-0}" \
+			"$([ -n "${BATS_TEST_COMPLETED:-}" ] && echo pass || echo fail)" >> "$OATS_MANIFEST"
+	fi
 }
 
 check_download_dataset(){
@@ -77,15 +85,15 @@ check_download_dataset(){
 	if [ ! -e ./datasets/$dataset/images ] && [ ! -z $DATASET_URL ]; then
 		if [ ! -e ./datasets/$dataset ]; then
 			mkdir ./datasets/$dataset
-		fi 
+		fi
 
 		wget $DATASET_URL -q -O ./datasets/$dataset/download.zip
 		cd ./datasets/$dataset/
-		unzip ./download.zip 2>/dev/null
+		unzip -q ./download.zip 2>/dev/null
 		rm ./download.zip
-		
+
 		# Remove top level directory if needed
-		for dir in $(ls -d */); do 
+		for dir in $(ls -d */); do
 			if [ "$dir" != "images/" ]; then
 				mv "$dir"/* .
 				rm -fr "$dir"
