@@ -97,6 +97,7 @@ environment_check(){
 	check_command "sed" "Run \033[1msudo apt install -y sed\033[0m" "sudo apt install -y sed"
 	check_command "unzip" "Run \033[1msudo apt install -y unzip\033[0m" "sudo apt install -y unzip"
 	check_command "jq" "Run \033[1msudo apt install -y jq\033[0m" "sudo apt install -y jq"
+	check_command "gdalinfo" "Run \033[1msudo apt install -y gdal-bin\033[0m" "sudo apt install -y gdal-bin"
 }
 
 ensure_bats(){
