@@ -6,6 +6,7 @@ export OATS_ARGV="$*"
 
 # Parse args
 export FILTER_DATASETS=""
+export FILTER_TESTS=""
 export TAG="latest"
 export DOCKER_IMAGE="opendronemap/odm"
 export CMD_OPTIONS=""
@@ -22,6 +23,11 @@ case $key in
 	# Split string using ',' separator
 	IFS=',' read -ra DST <<< "$2"
     export FILTER_DATASETS=("${DST[@]}")
+    shift # past argument
+    shift # past value
+    ;;
+    --filter)
+    export FILTER_TESTS="$2"
     shift # past argument
     shift # past value
     ;;
@@ -80,6 +86,7 @@ usage(){
   echo
   echo "Options:"
   echo "	--datasets <dataset1,dataset2,...>	Test only the specified datasets from the group"
+  echo "	--filter	<regex>	Run only the test cases whose description matches the regex"
   echo "	--tag	<tag>	docker image tag to test. (default: latest)"
   echo "	--options	\"--odm-option 1 --rerun-from odm_meshing ...\"	Options to append to each OpenDroneMap invocation (for example to rerun from a certain step of the pipeline). Make sure to add these in quotes. (default: \"\")"
   echo "	--image_name	<docker image>	Docker image to use. (default: opendronemap/odm)"
@@ -203,7 +210,8 @@ run_dataset(){
 
 	start=$SECONDS
 	BATS_REPORT_FILENAME="${dataset}_${TAG}.xml" \
-		"$BATS" --timing --report-formatter junit --output "$REPORT_DIR" "$test_file"
+		"$BATS" --timing --report-formatter junit --output "$REPORT_DIR" \
+		${FILTER_TESTS:+-f "$FILTER_TESTS"} "$test_file"
 	rc=$?
 	elapsed=$((SECONDS - start))
 
@@ -213,6 +221,15 @@ run_dataset(){
 	return 0
 }
 
+# Datasets left without a single matching test case by --filter are dropped,
+# so they stay out of the count, the run and the summary
+has_matching_tests(){
+	local test_file="$1"
+
+	[ -z "$FILTER_TESTS" ] && return 0
+	[ "$("$BATS" --count -f "$FILTER_TESTS" "$test_file")" -gt 0 ]
+}
+
 run_group(){
 	local total idx dataset test_file
 
@@ -220,7 +237,8 @@ run_group(){
 
 	total=0
 	for dataset in "${datasets[@]}"; do
-		[ -e "tests/build/${dataset}_${TAG}.bats" ] && total=$((total+1))
+		test_file="tests/build/${dataset}_${TAG}.bats"
+		[ -e "$test_file" ] && has_matching_tests "$test_file" && total=$((total+1))
 	done
 
 	idx=0
@@ -228,6 +246,7 @@ run_group(){
 		if [ -e "tests/$dataset.oat" ]; then
 			test_file="tests/build/${dataset}_${TAG}.bats"
 			[ -e "$test_file" ] || continue
+			has_matching_tests "$test_file" || continue
 			idx=$((idx+1))
 			run_dataset "$test_file" "$dataset" "$idx" "$total"
 		else
