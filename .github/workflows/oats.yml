@@ -147,15 +147,25 @@ jobs:
           require_tests: true
           fail_on_failure: true
 
-      # TODO(storage): once the self-hosted MinIO storage service exists
-      # (separate task), push $run_dir (including run_manifest.json) to the
-      # bucket, e.g. `mc cp --recursive "$run_dir" oats/<run_key>`. Until then
-      # the run directory is exposed as a GitHub Actions artifact below.
+      # TODO: This will need updating once the self-hosted Garage storage
+      # service exists For now we just store the text artifacts as the whole
+      # results directory is far too big to store as an artifact.
       - name: Upload run artifact
         if: always() && steps.rundir.outputs.run_dir != ''
         uses: actions/upload-artifact@v7
         with:
           name: oats-run-${{ github.run_id }}
-          path: ${{ steps.rundir.outputs.run_dir }}
+          path: |
+            ${{ steps.rundir.outputs.run_dir }}/run_manifest.json
+            ${{ steps.rundir.outputs.run_dir }}/oats_manifest.tsv
+            ${{ steps.rundir.outputs.run_dir }}/reports/*.xml
+            ${{ steps.rundir.outputs.run_dir }}/tests/*/*/task_output.txt
+            ${{ steps.rundir.outputs.run_dir }}/tests/*/*/log.json
+            ${{ steps.rundir.outputs.run_dir }}/tests/*/*/benchmark.txt
+            ${{ steps.rundir.outputs.run_dir }}/tests/*/*/options.json
+            ${{ steps.rundir.outputs.run_dir }}/tests/*/*/img_list.txt
+            ${{ steps.rundir.outputs.run_dir }}/tests/*/*/cameras.json
+            ${{ steps.rundir.outputs.run_dir }}/tests/*/*/odm_report/stats.json
+            ${{ steps.rundir.outputs.run_dir }}/tests/*/*/odm_report/shots.geojson
           if-no-files-found: warn
           retention-days: 14

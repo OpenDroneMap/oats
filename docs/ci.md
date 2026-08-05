@@ -10,12 +10,11 @@ outside it, namely the runner, the cross-repo token and the ODM-side trigger.
 Register a runner against this repository (*Settings → Actions → Runners*). The
 default `self-hosted` label is all the workflow asks for.
 
-It needs docker, plus `git`, `wget`, `rsync`, `sed`, `unzip` and `jq` on `PATH`;
-`./run` bootstraps bats itself. Give it plenty of RAM — the suite is RAM-bound
-and the `all` group sets the ceiling — and tens of GB of disk. The workspace
-persists between runs: datasets are cached under `datasets/`, and every run
-writes a full set of ODM outputs under `results/runs/`. Nothing prunes those
-yet.
+It needs docker, plus `git`, `wget`, `rsync`, `sed`, `unzip`, `jq`, and
+`gdalinfo` on `PATH`; `./run` bootstraps bats itself. Give it plenty of RAM —
+the suite is RAM-bound and the `all` group sets the ceiling. Each full run
+generates about 60GB of output right now so as a rough guide we should aim for
+about 1TB of disk space.
 
 Keep a single runner attached. The workflow serialises runs with a `concurrency`
 group, but that only helps if there is one machine to serialise onto — a second
@@ -62,12 +61,10 @@ To generate one, from an account with admin on this repo:
    repository secret*, named `OATS_DISPATCH_TOKEN`.
 
 Fine-grained tokens expire, so note the date. When one lapses the dispatch step
-fails and the ODM publish job goes red — the image is already pushed by then, so
-it is only the OATS run that is lost. A classic PAT with `repo` scope works too
-and can be set never to expire, at the cost of reaching every repo its owner can.
+fails and the ODM publish job goes red.
 
 ## Results
 
-Runs upload the run directory as a GitHub artifact with a 14-day retention.
-That is a placeholder until the storage service lands — see the
-`TODO(storage)` in `oats.yml`.
+Currently we store the text outputs as a github artifact which will allow us to
+review any failures. This will be replaced by the s3-compatible Garage server
+once its set up.
