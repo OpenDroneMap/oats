@@ -1,0 +1,33 @@
+---
+# Garage resolves a bucket from the request Host, so the public hostname
+# has to exist as a bucket alias.
+- name: Read the bucket's aliases
+  ansible.builtin.command: "{{ oats_garage }} bucket info {{ oats_bucket }}"
+  args:
+    chdir: "{{ oats_storage_dir }}"
+  register: oats_bucket_info
+  changed_when: false
+
+- name: Alias the bucket to the public hostname
+  ansible.builtin.command: >-
+    {{ oats_garage }} bucket alias {{ oats_bucket }} {{ oats_public_hostname }}
+  args:
+    chdir: "{{ oats_storage_dir }}"
+  when: oats_public_hostname not in oats_bucket_info.stdout
+
+- name: Write the nginx vhost
+  when: oats_nginx_manage | bool
+  block:
+    - name: Install the store's server block
+      ansible.builtin.template:
+        src: nginx-store.conf.j2
+        dest: "{{ oats_nginx_site_dir }}/oats-store"
+        mode: "0644"
+      notify: Reload nginx
+
+    - name: Enable the store's server block
+      ansible.builtin.file:
+        src: "{{ oats_nginx_site_dir }}/oats-store"
+        dest: "{{ oats_nginx_enabled_dir }}/oats-store"
+        state: link
+      notify: Reload nginx

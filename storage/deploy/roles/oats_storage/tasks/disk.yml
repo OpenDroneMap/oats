@@ -1,0 +1,13 @@
+---
+- name: Create a filesystem on the data device
+  community.general.filesystem:
+    fstype: "{{ oats_data_fstype }}"
+    dev: "{{ oats_data_device }}"
+
+- name: Mount the data device
+  ansible.posix.mount:
+    path: "{{ oats_data_mount }}"
+    src: "{{ oats_data_device }}"
+    fstype: "{{ oats_data_fstype }}"
+    opts: defaults,nofail
+    state: mounted

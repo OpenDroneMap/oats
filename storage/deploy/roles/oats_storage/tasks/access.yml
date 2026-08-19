@@ -1,0 +1,33 @@
+---
+- name: Create the directory mc is installed into
+  ansible.builtin.file:
+    path: "{{ oats_mc_path | dirname }}"
+    state: directory
+    mode: "0755"
+
+- name: Install the mc S3 client
+  ansible.builtin.get_url:
+    url: "{{ oats_mc_url }}"
+    dest: "{{ oats_mc_path }}"
+    mode: "0755"
+
+- name: Register the bucket with mc
+  ansible.builtin.command: >-
+    {{ oats_mc_path }} --config-dir {{ oats_conf_dir }}/mc alias set oats
+    {{ oats_s3_endpoint }} {{ oats_key_id }} {{ oats_key_secret }}
+  changed_when: false
+  no_log: true
+
+- name: Read the current CORS configuration
+  ansible.builtin.command: >-
+    {{ oats_mc_path }} --config-dir {{ oats_conf_dir }}/mc
+    cors get oats/{{ oats_bucket }}
+  register: oats_cors_now
+  changed_when: false
+  failed_when: false
+
+- name: Allow cross-origin reads
+  ansible.builtin.command: >-
+    {{ oats_mc_path }} --config-dir {{ oats_conf_dir }}/mc cors set oats/{{ oats_bucket }}
+    {{ oats_storage_dir }}/cors.xml
+  when: "'AllowedOrigin' not in oats_cors_now.stdout"

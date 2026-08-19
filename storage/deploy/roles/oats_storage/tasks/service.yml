@@ -1,0 +1,62 @@
+---
+- name: Create the store directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ oats_storage_dir }}", mode: "0755" }
+    - { path: "{{ oats_data_root }}/meta", mode: "0700" }
+    - { path: "{{ oats_data_root }}/data", mode: "0700" }
+    - { path: "{{ oats_conf_dir }}", mode: "0700" }
+    - { path: "{{ oats_conf_dir }}/mc", mode: "0700" }
+
+- name: Deploy the store configuration
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../{{ item.name }}"
+    dest: "{{ oats_storage_dir }}/{{ item.name }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { name: compose.yaml, mode: "0644" }
+    - { name: garage.toml, mode: "0644" }
+    - { name: cors.xml, mode: "0644" }
+    - { name: publish_run.sh, mode: "0755" }
+  notify: Restart Garage
+
+- name: Point Garage's volumes at the data disk
+  ansible.builtin.template:
+    src: compose.override.yaml.j2
+    dest: "{{ oats_storage_dir }}/compose.override.yaml"
+    mode: "0644"
+  notify: Restart Garage
+
+# Garage's own secrets are generated once and never rotated by a re-run.
+- name: Look for existing Garage secrets
+  ansible.builtin.stat:
+    path: "{{ oats_storage_dir }}/.env"
+  register: oats_env_file
+
+- name: Generate Garage secrets
+  ansible.builtin.set_fact:
+    oats_rpc_secret: "{{ lookup('ansible.builtin.password', '/dev/null', chars=['hexdigits'], length=64) | lower }}"
+    oats_admin_token: "{{ lookup('ansible.builtin.password', '/dev/null', length=32) }}"
+  when: not oats_env_file.stat.exists
+  no_log: true
+
+- name: Write the Garage secrets file
+  ansible.builtin.copy:
+    content: |
+      GARAGE_RPC_SECRET={{ oats_rpc_secret }}
+      GARAGE_ADMIN_TOKEN={{ oats_admin_token }}
+    dest: "{{ oats_storage_dir }}/.env"
+    mode: "0600"
+  when: not oats_env_file.stat.exists
+  no_log: true
+
+- name: Start Garage
+  community.docker.docker_compose_v2:
+    project_src: "{{ oats_storage_dir }}"
+    state: present
+
+- name: Flush handlers so Garage restarts before it is initialised
+  ansible.builtin.meta: flush_handlers

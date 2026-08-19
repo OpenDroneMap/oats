@@ -1,6 +1,6 @@
 ---
-# Where the committed store config (compose.yaml, garage.toml, cors.xml,
-# init.sh) is deployed to on the host.
+# Where the committed store config (compose.yaml, garage.toml, cors.xml)
+# is deployed to on the host.
 oats_storage_dir: /opt/oats-storage
 
 # Garage's metadata and data live here, on the data disk.
@@ -13,11 +13,17 @@ oats_data_device: ""
 oats_data_fstype: ext4
 
 oats_bucket: oats-runs
+oats_key_name: oats-writer
+oats_zone: dc1
+oats_capacity: 100G
+
+# The Garage CLI lives inside the container; RUST_LOG quietens its chatter.
+oats_garage: docker compose exec -T -e RUST_LOG=error garage /garage
 oats_s3_endpoint: http://127.0.0.1:3900
 oats_web_endpoint: http://127.0.0.1:3902
 
-# Credentials written here, root-only. The writer secret is shown once by
-# init.sh, so this file is the only copy on the host.
+# Credentials written here, root-only. Garage reveals a secret only when the
+# key is created, so this file is the only copy on the host.
 oats_conf_dir: /etc/oats
 oats_writer_env: "{{ oats_conf_dir }}/writer.env"
 

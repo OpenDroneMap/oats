@@ -6,196 +6,21 @@
   failed_when: oats_docker_check.rc != 0
 
 - name: Prepare the data disk
+  ansible.builtin.import_tasks: disk.yml
   when: oats_data_device | length > 0
-  block:
-    - name: Create a filesystem on the data device
-      community.general.filesystem:
-        fstype: "{{ oats_data_fstype }}"
-        dev: "{{ oats_data_device }}"
 
-    - name: Mount the data device
-      ansible.posix.mount:
-        path: "{{ oats_data_mount }}"
-        src: "{{ oats_data_device }}"
-        fstype: "{{ oats_data_fstype }}"
-        opts: defaults,nofail
-        state: mounted
+- name: Deploy and start the Garage service
+  ansible.builtin.import_tasks: service.yml
 
-- name: Create the store directories
-  ansible.builtin.file:
-    path: "{{ item.path }}"
-    state: directory
-    mode: "{{ item.mode }}"
-  loop:
-    - { path: "{{ oats_storage_dir }}", mode: "0755" }
-    - { path: "{{ oats_data_root }}/meta", mode: "0700" }
-    - { path: "{{ oats_data_root }}/data", mode: "0700" }
-    - { path: "{{ oats_conf_dir }}", mode: "0700" }
-    - { path: "{{ oats_conf_dir }}/mc", mode: "0700" }
+- name: Set up the cluster and its bucket
+  ansible.builtin.import_tasks: cluster.yml
 
-- name: Deploy the store configuration
-  ansible.builtin.copy:
-    src: "{{ playbook_dir }}/../{{ item.name }}"
-    dest: "{{ oats_storage_dir }}/{{ item.name }}"
-    mode: "{{ item.mode }}"
-  loop:
-    - { name: compose.yaml, mode: "0644" }
-    - { name: garage.toml, mode: "0644" }
-    - { name: cors.xml, mode: "0644" }
-    - { name: init.sh, mode: "0755" }
-    - { name: publish_run.sh, mode: "0755" }
-  notify: Restart Garage
+- name: Issue the writer key
+  ansible.builtin.import_tasks: credentials.yml
 
-- name: Point Garage's volumes at the data disk
-  ansible.builtin.template:
-    src: compose.override.yaml.j2
-    dest: "{{ oats_storage_dir }}/compose.override.yaml"
-    mode: "0644"
-  notify: Restart Garage
+- name: Open the bucket for browser reads
+  ansible.builtin.import_tasks: access.yml
 
-# Garage's own secrets are generated once and never rotated by a re-run.
-- name: Look for existing Garage secrets
-  ansible.builtin.stat:
-    path: "{{ oats_storage_dir }}/.env"
-  register: oats_env_file
-
-- name: Generate Garage secrets
-  ansible.builtin.set_fact:
-    oats_rpc_secret: "{{ lookup('ansible.builtin.password', '/dev/null', chars=['hexdigits'], length=64) | lower }}"
-    oats_admin_token: "{{ lookup('ansible.builtin.password', '/dev/null', length=32) }}"
-  when: not oats_env_file.stat.exists
-  no_log: true
-
-- name: Write the Garage secrets file
-  ansible.builtin.copy:
-    content: |
-      GARAGE_RPC_SECRET={{ oats_rpc_secret }}
-      GARAGE_ADMIN_TOKEN={{ oats_admin_token }}
-    dest: "{{ oats_storage_dir }}/.env"
-    mode: "0600"
-  when: not oats_env_file.stat.exists
-  no_log: true
-
-- name: Start Garage
-  community.docker.docker_compose_v2:
-    project_src: "{{ oats_storage_dir }}"
-    state: present
-
-- name: Flush handlers so Garage restarts before it is initialised
-  ansible.builtin.meta: flush_handlers
-
-# init.sh is idempotent and is the same script used for local development, so
-# the layout / bucket / website / key setup has exactly one definition.
-- name: Initialise the cluster, bucket and writer key
-  ansible.builtin.command: ./init.sh
-  args:
-    chdir: "{{ oats_storage_dir }}"
-  register: oats_init
-  changed_when: "'Writer key created' in oats_init.stdout"
-  no_log: true
-
-- name: Store the writer credentials
-  ansible.builtin.copy:
-    content: |
-      AWS_ACCESS_KEY_ID={{ oats_init.stdout | regex_search('AWS_ACCESS_KEY_ID=(\S+)', '\1') | first }}
-      AWS_SECRET_ACCESS_KEY={{ oats_init.stdout | regex_search('AWS_SECRET_ACCESS_KEY=(\S+)', '\1') | first }}
-    dest: "{{ oats_writer_env }}"
-    mode: "0600"
-  when: "'Writer key created' in oats_init.stdout"
-  no_log: true
-
-- name: Check that the writer credentials are on disk
-  ansible.builtin.stat:
-    path: "{{ oats_writer_env }}"
-  register: oats_writer_stat
-
-- name: Fail when the writer secret is unrecoverable
-  ansible.builtin.fail:
-    msg: >-
-      The writer key exists in Garage but {{ oats_writer_env }} is missing, and
-      Garage only reveals a secret at creation time. Delete the key
-      ("garage key delete oats-writer") and re-run to issue a new one.
-  when: not oats_writer_stat.stat.exists
-
-- name: Read the writer credentials
-  ansible.builtin.slurp:
-    src: "{{ oats_writer_env }}"
-  register: oats_writer_raw
-  no_log: true
-
-- name: Load the writer credentials
-  ansible.builtin.set_fact:
-    oats_key_id: "{{ oats_writer_raw.content | b64decode | regex_search('AWS_ACCESS_KEY_ID=(\\S+)', '\\1') | first }}"
-    oats_key_secret: "{{ oats_writer_raw.content | b64decode | regex_search('AWS_SECRET_ACCESS_KEY=(\\S+)', '\\1') | first }}"
-  no_log: true
-
-- name: Install the mc S3 client
-  ansible.builtin.get_url:
-    url: "{{ oats_mc_url }}"
-    dest: "{{ oats_mc_path }}"
-    mode: "0755"
-
-- name: Register the bucket with mc
-  ansible.builtin.command: >-
-    {{ oats_mc_path }} --config-dir {{ oats_conf_dir }}/mc alias set oats
-    {{ oats_s3_endpoint }} {{ oats_key_id }} {{ oats_key_secret }}
-  changed_when: false
-  no_log: true
-
-- name: Read the current CORS configuration
-  ansible.builtin.command: >-
-    {{ oats_mc_path }} --config-dir {{ oats_conf_dir }}/mc
-    cors get oats/{{ oats_bucket }}
-  register: oats_cors_now
-  changed_when: false
-  failed_when: false
-
-- name: Allow cross-origin reads
-  ansible.builtin.command: >-
-    {{ oats_mc_path }} --config-dir {{ oats_conf_dir }}/mc cors set oats/{{ oats_bucket }}
-    {{ oats_storage_dir }}/cors.xml
-  when: "'AllowedOrigin' not in oats_cors_now.stdout"
-
-- name: Serve the bucket under the public hostname
+- name: Publish the bucket under its hostname
+  ansible.builtin.import_tasks: proxy.yml
   when: oats_public_hostname | length > 0
-  block:
-    # Garage resolves a bucket from the request Host, so the public hostname
-    # has to exist as a bucket alias.
-    - name: Read the bucket's aliases
-      ansible.builtin.command: docker compose exec -T garage /garage bucket info {{ oats_bucket }}
-      args:
-        chdir: "{{ oats_storage_dir }}"
-      register: oats_bucket_info
-      changed_when: false
-
-    - name: Alias the bucket to the public hostname
-      ansible.builtin.command: >-
-        docker compose exec -T garage /garage bucket alias
-        {{ oats_bucket }} {{ oats_public_hostname }}
-      args:
-        chdir: "{{ oats_storage_dir }}"
-      when: oats_public_hostname not in oats_bucket_info.stdout
-
-    - name: Write the nginx vhost
-      when: oats_nginx_manage | bool
-      block:
-        - name: Install the store's server block
-          ansible.builtin.template:
-            src: nginx-store.conf.j2
-            dest: "{{ oats_nginx_site_dir }}/oats-store"
-            mode: "0644"
-          notify: Reload nginx
-
-        - name: Enable the store's server block
-          ansible.builtin.file:
-            src: "{{ oats_nginx_site_dir }}/oats-store"
-            dest: "{{ oats_nginx_enabled_dir }}/oats-store"
-            state: link
-          notify: Reload nginx
-
-- name: Copy the writer credentials to the control node
-  ansible.builtin.fetch:
-    src: "{{ oats_writer_env }}"
-    dest: "{{ oats_fetch_dest }}"
-    flat: true
-  when: oats_fetch_writer_env | bool

@@ -41,11 +41,17 @@ enumerates the bucket:
 
 ## Deployment
 
-`deploy/` holds an Ansible role that does the whole host setup: mounts the data
-disk, deploys this directory, generates Garage's secrets, starts the container,
-runs `init.sh`, applies CORS, and aliases the bucket to the public hostname
-(optionally writing the nginx vhost). It is idempotent — re-run it to roll out a
-config change.
+`deploy/` holds an Ansible role that does the whole setup — there is no
+provisioning left in shell. Its task files split along what they set up:
+
+- `disk.yml` — format and mount the data disk
+- `service.yml` — deploy this directory, generate Garage's secrets, start the container
+- `cluster.yml` — node layout, bucket, anonymous web access
+- `credentials.yml` — issue the writer key and store it
+- `access.yml` — install `mc`, apply CORS
+- `proxy.yml` — alias the bucket to its hostname, nginx vhost
+
+It is idempotent — re-run it to roll out a config change.
 
 ```sh
 cd deploy
@@ -76,20 +82,20 @@ rollback.
 
 ## Local development
 
-Docker only — no Ansible needed:
+The same role runs against this machine, putting the store under
+`~/.local/share/oats-store`:
 
 ```sh
-cp .env.example .env          # fill GARAGE_RPC_SECRET, GARAGE_ADMIN_TOKEN
-docker compose up -d
-./init.sh                      # idempotent; prints the writer key once
-mc alias set oats http://127.0.0.1:3900 <KEY_ID> <SECRET>
-mc cors set oats/oats-runs cors.xml
+cd deploy
+ansible-playbook -i inventory.local.yml storage.yml
 ```
 
+Credentials land in `~/.local/share/oats-store/conf/writer.env`.
+
 Garage resolves a bucket from the request `Host`, matched against a bucket
-global alias. `init.sh` creates the alias `oats-runs`; to reach the web endpoint
-(`127.0.0.1:3902`) from a browser, point that name at `127.0.0.1` in
-`/etc/hosts`, or add an alias for whatever hostname you use.
+global alias — the bucket's own name, `oats-runs`, is one. To reach the web
+endpoint (`127.0.0.1:3902`) from a browser, point that name at `127.0.0.1` in
+`/etc/hosts`, or set `oats_public_hostname` to the name you want and re-run.
 
 ## Publishing
 
