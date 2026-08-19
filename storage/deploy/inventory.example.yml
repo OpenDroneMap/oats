@@ -16,6 +16,6 @@ all:
       # matching alias so Garage resolves it by virtual host.
       # oats_public_hostname: oats-store.example.com
 
-      # Let the playbook write the nginx vhost too. Leave false if the viewer's
-      # task owns the proxy config.
+      # Let the playbook write the nginx vhost. Leave false when the proxy
+      # config is managed elsewhere.
       # oats_nginx_manage: true

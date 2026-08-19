@@ -21,7 +21,7 @@ oats-runs (bucket root)
   <odm_git_short>/<image_key12>/<timestamp>/    # one self-contained run
     run_manifest.json
     reports/*.xml
-    <tag>/<dataset>/<test>/...                  # the ODM outputs
+    tests/<dataset>/<test>/...                  # the ODM outputs
 ```
 
 The key is the run directory's own relative path under `results/runs/` — read
@@ -41,8 +41,8 @@ enumerates the bucket:
 
 ## Deployment
 
-`deploy/` holds an Ansible role that does the whole setup — there is no
-provisioning left in shell. Its task files split along what they set up:
+`deploy/` holds an Ansible role that performs the entire setup. Its task files
+split along what they set up:
 
 - `disk.yml` — format and mount the data disk
 - `service.yml` — deploy this directory, generate Garage's secrets, start the container
@@ -65,8 +65,7 @@ The writer credentials are generated on first run and left in
 to copy them back for pasting into the CI secret store. Garage only reveals a
 secret at creation, so if that file is lost the key has to be reissued.
 
-Two things stay manual, on the Proxmox host — they are one-shot and outside the
-VM:
+Two operations are manual, on the Proxmox host — one-shot, and outside the VM:
 
 ```sh
 qm set <vmid> -scsi1 /dev/disk/by-id/<drive-id>   # pass the data disk through
@@ -76,9 +75,8 @@ qm set <vmid> -onboot 1                           # store is always-on
 Snapshot before a Garage upgrade (`qm snapshot <vmid> pre-upgrade`) for instant
 rollback.
 
-> Status: the role is verified end-to-end against a local Garage (fresh deploy,
-> idempotent re-run, publish, cross-origin read). Running it against the
-> Proxmox VM is the one remaining step, pending access to that host.
+> The role has not yet been run against the Proxmox VM; that is the remaining
+> deployment step.
 
 ## Local development
 
@@ -106,7 +104,8 @@ See `--help`.
 
 ## Credentials
 
-- `GARAGE_RPC_SECRET` / `GARAGE_ADMIN_TOKEN`: `storage/.env`, read by `compose.yaml`.
+- `GARAGE_RPC_SECRET` / `GARAGE_ADMIN_TOKEN`: generated on first deploy into
+  `.env` beside `compose.yaml`, which reads them.
 - Writer key/secret: `/etc/oats/writer.env` on the host, and the CI secret store.
 - The viewer needs none — it reads the public endpoint only.
 

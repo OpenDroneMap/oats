@@ -4,9 +4,8 @@ db_engine = "lmdb"
 
 replication_factor = 1
 
-# Everything binds to localhost. Public read is served only through the host's
-# reverse proxy (see README), which reaches the web endpoint over 127.0.0.1 — so
-# nothing is exposed on the network directly.
+# Every endpoint binds to loopback, so nothing is reachable off the host
+# directly; the reverse proxy fronts the web endpoint for public read.
 rpc_bind_addr = "127.0.0.1:3901"
 rpc_public_addr = "127.0.0.1:3901"
 

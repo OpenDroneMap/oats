@@ -121,10 +121,9 @@ This command will copy all odm_orthophoto.tif files from all test cases into `/m
 ### Publishing runs to durable storage
 
 `results/runs/` is local and prunable. To retain runs and serve them read-only
-over HTTP for the comparison viewer, publish them to the artifact store — a
-Garage (S3-compatible) bucket or a plain filesystem root — with
+over HTTP for the comparison viewer, publish them to the artifact store with
 `storage/publish_run.sh`. See [`storage/README.md`](storage/README.md) for the
-backend, setup, and publish workflow.
+store's layout, setup and publish workflow.
 
 ## Roadmap
 
