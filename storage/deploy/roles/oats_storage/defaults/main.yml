@@ -1,0 +1,37 @@
+---
+# Where the committed store config (compose.yaml, garage.toml, cors.xml,
+# init.sh) is deployed to on the host.
+oats_storage_dir: /opt/oats-storage
+
+# Garage's metadata and data live here, on the data disk.
+oats_data_mount: /data
+oats_data_root: "{{ oats_data_mount }}/oats-garage"
+
+# Optional block device to format and mount at oats_data_mount. Unset means
+# the playbook touches no disks.
+oats_data_device: ""
+oats_data_fstype: ext4
+
+oats_bucket: oats-runs
+oats_s3_endpoint: http://127.0.0.1:3900
+oats_web_endpoint: http://127.0.0.1:3902
+
+# Credentials written here, root-only. The writer secret is shown once by
+# init.sh, so this file is the only copy on the host.
+oats_conf_dir: /etc/oats
+oats_writer_env: "{{ oats_conf_dir }}/writer.env"
+
+# Copy the writer credentials back to the control node (for pasting into the
+# CI secret store). Off by default so secrets do not spread silently.
+oats_fetch_writer_env: false
+oats_fetch_dest: ./writer.env
+
+oats_mc_path: /usr/local/bin/mc
+oats_mc_url: https://dl.min.io/client/mc/release/linux-amd64/mc
+
+# Public hostname; when set the bucket is aliased to it so Garage resolves it
+# by virtual host. nginx vhost is only written when oats_nginx_manage is true.
+oats_public_hostname: ""
+oats_nginx_manage: false
+oats_nginx_site_dir: /etc/nginx/sites-available
+oats_nginx_enabled_dir: /etc/nginx/sites-enabled

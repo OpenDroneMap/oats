@@ -1,0 +1,10 @@
+---
+- name: Restart Garage
+  community.docker.docker_compose_v2:
+    project_src: "{{ oats_storage_dir }}"
+    state: restarted
+
+- name: Reload nginx
+  ansible.builtin.systemd:
+    name: nginx
+    state: reloaded

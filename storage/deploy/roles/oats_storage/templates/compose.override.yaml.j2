@@ -1,0 +1,6 @@
+# Managed by Ansible (roles/oats_storage). Local edits are overwritten.
+services:
+  garage:
+    volumes:
+      - {{ oats_data_root }}/meta:/var/lib/garage/meta
+      - {{ oats_data_root }}/data:/var/lib/garage/data

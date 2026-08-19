@@ -27,7 +27,8 @@ oats-runs (bucket root)
 The key is the run directory's own relative path under `results/runs/` — read
 straight from `run_manifest.json`'s `run_key`.
 
-`index.json` is the only file the viewer lists; it never enumerates the bucket:
+`index.json` is the only file the viewer reads to discover runs; it never
+enumerates the bucket:
 
 ```json
 { "generated": "...", "runs": [ {
@@ -38,140 +39,75 @@ straight from `run_manifest.json`'s `run_key`.
 
 `passed`/`failed` aggregate the per-dataset bats exit codes.
 
-## Local setup (development)
+## Deployment
 
-Needs Docker. Secrets come from `storage/.env` (git-ignored — never commit).
+`deploy/` holds an Ansible role that does the whole host setup: mounts the data
+disk, deploys this directory, generates Garage's secrets, starts the container,
+runs `init.sh`, applies CORS, and aliases the bucket to the public hostname
+(optionally writing the nginx vhost). It is idempotent — re-run it to roll out a
+config change.
 
 ```sh
-cd storage
-cp .env.example .env          # fill GARAGE_RPC_SECRET, GARAGE_ADMIN_TOKEN
-docker compose up -d
-./init.sh                      # idempotent: layout, bucket, website, writer key
-                               # prints the writer key/secret once — save them
+cd deploy
+ansible-galaxy collection install -r requirements.yml
+cp inventory.example.yml inventory.yml     # set the host, disk and hostname
+ansible-playbook storage.yml
 ```
 
-Then apply CORS so browsers can read cross-origin (needs an S3 client, e.g.
-[`mc`](https://min.io/docs/minio/linux/reference/minio-mc.html)):
+The writer credentials are generated on first run and left in
+`/etc/oats/writer.env` on the host (root-only); pass `-e oats_fetch_writer_env=true`
+to copy them back for pasting into the CI secret store. Garage only reveals a
+secret at creation, so if that file is lost the key has to be reissued.
+
+Two things stay manual, on the Proxmox host — they are one-shot and outside the
+VM:
 
 ```sh
+qm set <vmid> -scsi1 /dev/disk/by-id/<drive-id>   # pass the data disk through
+qm set <vmid> -onboot 1                           # store is always-on
+```
+
+Snapshot before a Garage upgrade (`qm snapshot <vmid> pre-upgrade`) for instant
+rollback.
+
+> Status: the role is verified end-to-end against a local Garage (fresh deploy,
+> idempotent re-run, publish, cross-origin read). Running it against the
+> Proxmox VM is the one remaining step, pending access to that host.
+
+## Local development
+
+Docker only — no Ansible needed:
+
+```sh
+cp .env.example .env          # fill GARAGE_RPC_SECRET, GARAGE_ADMIN_TOKEN
+docker compose up -d
+./init.sh                      # idempotent; prints the writer key once
 mc alias set oats http://127.0.0.1:3900 <KEY_ID> <SECRET>
 mc cors set oats/oats-runs cors.xml
 ```
 
-Anonymous read is served by Garage's web endpoint (`127.0.0.1:3902`), which
-resolves the bucket by virtual host: it matches the request `Host` (port
-stripped) against a bucket global alias. `init.sh` creates the alias `oats-runs`;
-add one per public hostname the store is served under (see deployment). To reach
-it from a local browser, point that hostname at `127.0.0.1` (a `/etc/hosts`
-entry) or go through the reverse proxy.
+Garage resolves a bucket from the request `Host`, matched against a bucket
+global alias. `init.sh` creates the alias `oats-runs`; to reach the web endpoint
+(`127.0.0.1:3902`) from a browser, point that name at `127.0.0.1` in
+`/etc/hosts`, or add an alias for whatever hostname you use.
 
-## Publishing — `publish_run.sh`
+## Publishing
 
-Publishes a run directory to the Garage bucket and regenerates `index.json`.
-Idempotent per run key (`mc mirror --remove`); needs `mc` and `jq`.
-
-```sh
-export AWS_ACCESS_KEY_ID=<key> AWS_SECRET_ACCESS_KEY=<secret>
-./publish_run.sh ../results/runs/<rev>/<img>/<ts> s3://oats-runs \
-    --endpoint http://127.0.0.1:3900
-```
-
-`mc` is found on `PATH` or via `OATS_MC=/path/to/mc`.
+`./publish_run.sh <run_dir> s3://oats-runs --endpoint http://127.0.0.1:3900`
+writes a run and regenerates `index.json`. Idempotent per run key; needs `mc`
+and `jq`. Credentials come from `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`.
+See `--help`.
 
 ## Credentials
 
 - `GARAGE_RPC_SECRET` / `GARAGE_ADMIN_TOKEN`: `storage/.env`, read by `compose.yaml`.
-- Writer key/secret (from `init.sh`): the runner's CI secret store as
-  `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`, plus the endpoint as a variable.
-- The viewer needs no credentials.
+- Writer key/secret: `/etc/oats/writer.env` on the host, and the CI secret store.
+- The viewer needs none — it reads the public endpoint only.
 
-Nothing secret is committed; `.env` and `compose.override.yaml` are git-ignored.
+Nothing secret is committed; `.env`, `compose.override.yaml`, `deploy/inventory.yml`
+and `deploy/writer.env` are git-ignored.
 
-## Deployment on the Proxmox server
-
-One always-on VM on the Proxmox host runs the CI job, Garage, and the viewer's
-webserver. Garage stays bound to `127.0.0.1` (see `garage.toml`); the VM's
-reverse proxy — the same one serving the viewer — fronts it publicly. VM
-creation and GPU passthrough are the runner's concern, not the store's.
-
-### 1. Proxmox host — attach the data disk, start on boot
-
-Pass the spare drive through to the VM and make the VM come up after a host
-reboot (so the store is always available):
-
-```sh
-qm set <vmid> -scsi1 /dev/disk/by-id/<drive-id>   # raw disk passthrough
-qm set <vmid> -onboot 1
-```
-
-Snapshot before Garage upgrades for an instant rollback:
-`qm snapshot <vmid> pre-upgrade`.
-
-### 2. In the VM — mount the disk
-
-The passed-through drive shows up as a new block device (check `lsblk` — likely
-`/dev/sdb`). Format it once and mount it where Garage's data will live:
-
-```sh
-lsblk                                              # confirm the device first!
-sudo mkfs.ext4 /dev/sdb
-sudo mkdir -p /data
-echo '/dev/sdb /data ext4 defaults,nofail 0 2' | sudo tee -a /etc/fstab
-sudo mount -a
-```
-
-### 3. In the VM — deploy Garage
-
-```sh
-cd storage
-printf 'GARAGE_RPC_SECRET=%s\nGARAGE_ADMIN_TOKEN=%s\n' \
-  "$(openssl rand -hex 32)" "$(openssl rand -base64 32)" > .env
-
-# Put Garage's data on the mounted disk (git-ignored override):
-cat > compose.override.yaml <<YAML
-services:
-  garage:
-    volumes:
-      - /data/oats-garage/meta:/var/lib/garage/meta
-      - /data/oats-garage/data:/var/lib/garage/data
-YAML
-
-docker compose up -d
-./init.sh                                          # save the writer key/secret
-
-curl -sSL https://dl.min.io/client/mc/release/linux-amd64/mc -o mc && chmod +x mc
-./mc alias set oats http://127.0.0.1:3900 <KEY_ID> <SECRET>
-./mc cors set oats/oats-runs cors.xml
-```
-
-### 4. Front it with the VM's reverse proxy
-
-The web endpoint is on `127.0.0.1:3902`. Route the store's public hostname to it
-through the same proxy that serves the viewer. Garage matches the request `Host`
-against a bucket global alias, so alias the bucket to that hostname:
-
-```sh
-docker compose exec garage /garage bucket alias oats-runs oats-store.example.com
-```
-
-Example nginx server block (store on its own subdomain):
-
-```nginx
-server {
-    server_name oats-store.example.com;
-    location / {
-        proxy_pass http://127.0.0.1:3902;
-        proxy_set_header Host oats-store.example.com;
-    }
-}
-```
-
-If the viewer instead serves the store under its own origin (same-origin path),
-CORS isn't needed; on a separate hostname the committed `cors.xml` covers it.
-TLS is terminated by the proxy (or by however the VM is exposed publicly),
-alongside the viewer.
-
-### Durability
+## Durability
 
 Single node, single disk. Runs are re-derivable (re-run CI), or sync the bucket
 offsite with `rclone sync`. Back up the guest's config with `vzdump`; don't

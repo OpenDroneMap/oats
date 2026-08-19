@@ -1,0 +1,21 @@
+---
+# Copy to inventory.yml (git-ignored) and edit. One host: the always-on VM that
+# runs CI, Garage and the viewer.
+all:
+  hosts:
+    oats-store:
+      ansible_host: oats-vm.lan
+      ansible_user: michael
+
+      # Block device passed through from the Proxmox host. Leave unset to skip
+      # all disk handling and use whatever is already mounted at oats_data_root.
+      # WARNING: when set and unformatted, the playbook formats this device.
+      # oats_data_device: /dev/sdb
+
+      # Public hostname the store is served under. When set, the bucket gains a
+      # matching alias so Garage resolves it by virtual host.
+      # oats_public_hostname: oats-store.example.com
+
+      # Let the playbook write the nginx vhost too. Leave false if the viewer's
+      # task owns the proxy config.
+      # oats_nginx_manage: true
