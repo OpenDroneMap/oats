@@ -1,6 +1,6 @@
 ---
-# Garage resolves a bucket from the request Host, so the public hostname
-# has to exist as a bucket alias.
+# Garage resolves the bucket from the request Host, so the hostname must
+# exist as an alias.
 - name: Read the bucket's aliases
   ansible.builtin.command: "{{ oats_garage }} bucket info {{ oats_bucket }}"
   args:

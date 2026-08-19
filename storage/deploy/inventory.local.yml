@@ -1,5 +1,5 @@
 ---
-# Local development: run the store on this machine, under ~/.local/share.
+# Local development, under ~/.local/share:
 #   ansible-playbook -i inventory.local.yml storage.yml
 all:
   hosts:

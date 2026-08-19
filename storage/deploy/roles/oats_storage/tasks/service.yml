@@ -30,7 +30,7 @@
     mode: "0644"
   notify: Restart Garage
 
-# Garage's own secrets are generated once and never rotated by a re-run.
+# Generated once; a re-run never rotates them.
 - name: Look for existing Garage secrets
   ansible.builtin.stat:
     path: "{{ oats_storage_dir }}/.env"

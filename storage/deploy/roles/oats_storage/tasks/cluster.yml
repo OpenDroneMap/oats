@@ -54,7 +54,7 @@
   register: oats_bucket_state
   changed_when: false
 
-# Anonymous read is served by Garage's web endpoint, enabled per bucket.
+# Anonymous read is served by the web endpoint, enabled per bucket.
 - name: Serve the bucket's objects anonymously
   ansible.builtin.command: "{{ oats_garage }} bucket website --allow {{ oats_bucket }}"
   args:

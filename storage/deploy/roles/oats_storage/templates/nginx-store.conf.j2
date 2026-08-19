@@ -1,9 +1,9 @@
-# Managed by Ansible (roles/oats_storage). Local edits are overwritten.
-# Read-only artifact store: Garage's web endpoint, bound to localhost.
+# Managed by Ansible; local edits are overwritten.
+# Read-only store: Garage's web endpoint on loopback.
 server {
     server_name {{ oats_public_hostname }};
 
-    # ODM outputs are large; do not buffer whole objects to disk.
+    # ODM outputs are large; do not buffer them to disk.
     proxy_buffering off;
     client_max_body_size 0;
 

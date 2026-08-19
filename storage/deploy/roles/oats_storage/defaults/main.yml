@@ -1,14 +1,12 @@
 ---
-# Where the committed store config (compose.yaml, garage.toml, cors.xml)
-# is deployed to on the host.
+# Where compose.yaml, garage.toml and cors.xml are deployed.
 oats_storage_dir: /opt/oats-storage
 
-# Garage's metadata and data live here, on the data disk.
+# Garage's metadata and data, on the data disk.
 oats_data_mount: /data
 oats_data_root: "{{ oats_data_mount }}/oats-garage"
 
-# Optional block device to format and mount at oats_data_mount. Unset means
-# the playbook touches no disks.
+# Formatted and mounted at oats_data_mount. Unset means no disks are touched.
 oats_data_device: ""
 oats_data_fstype: ext4
 
@@ -17,26 +15,23 @@ oats_key_name: oats-writer
 oats_zone: dc1
 oats_capacity: 100G
 
-# The Garage CLI lives inside the container; RUST_LOG quietens its chatter.
+# The CLI lives in the container; RUST_LOG quietens it.
 oats_garage: docker compose exec -T -e RUST_LOG=error garage /garage
 oats_s3_endpoint: http://127.0.0.1:3900
 oats_web_endpoint: http://127.0.0.1:3902
 
-# Credentials written here, root-only. Garage reveals a secret only when the
-# key is created, so this file is the only copy on the host.
+# Root-only. Garage reveals a secret only at creation, so this is the only copy.
 oats_conf_dir: /etc/oats
 oats_writer_env: "{{ oats_conf_dir }}/writer.env"
 
-# Copy the writer credentials back to the control node (for pasting into the
-# CI secret store). Off by default so secrets do not spread silently.
+# Copy the credentials to the control node, for the CI secret store.
 oats_fetch_writer_env: false
 oats_fetch_dest: ./writer.env
 
 oats_mc_path: /usr/local/bin/mc
 oats_mc_url: https://dl.min.io/client/mc/release/linux-amd64/mc
 
-# Public hostname; when set the bucket is aliased to it so Garage resolves it
-# by virtual host. nginx vhost is only written when oats_nginx_manage is true.
+# When set, the bucket is aliased to it. The vhost needs oats_nginx_manage.
 oats_public_hostname: ""
 oats_nginx_manage: false
 oats_nginx_site_dir: /etc/nginx/sites-available

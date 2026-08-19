@@ -1,12 +1,7 @@
 #!/bin/bash
 #
 # Publish an OATS run directory to the Garage (S3) store and regenerate the
-# store's index.json, using mc (MinIO client) against the S3 endpoint.
-#
-# The store mirrors the harness layout: a run keyed by its identity
-# (<odm_git_short>/<image_key12>/<timestamp>) lives at the bucket root next to a
-# top-level index.json listing every run. Re-publishing the same run overwrites
-# it cleanly, so the operation is idempotent per run key.
+# store's index.json. Idempotent per run key. See storage/README.md.
 #
 # Usage:
 #   publish_run.sh <run_dir> <s3_url> --endpoint URL

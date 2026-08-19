@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     network_mode: host
     environment:
-      # Read from .env in this directory, written by the deploy role.
+      # From .env here, written by the deploy role.
       GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?set GARAGE_RPC_SECRET in storage/.env}
       GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?set GARAGE_ADMIN_TOKEN in storage/.env}
     volumes:
