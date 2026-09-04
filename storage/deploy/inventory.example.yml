@@ -1,18 +1,16 @@
 ---
-# Copy to inventory.yml (git-ignored). One host: the VM running CI, Garage
-# and the viewer.
+# Copy to inventory.yml (git-ignored)
 all:
   hosts:
     oats-store:
-      ansible_host: oats-vm.lan
-      ansible_user: michael
+      ansible_host: oats-vm.lan  # VM hostname or IP
+      ansible_user: ubuntu       # SSH username (needs sudo)
 
-      # Passed through from the Proxmox host; unset skips all disk handling.
-      # WARNING: an unformatted device is formatted.
-      # oats_data_device: /dev/sdb
+      # Set the nginx vhost so the store is accessible via HTTP.
+      oats_public_hostname: oats-store.opendronemap.org
 
-      # Served under this name; the bucket gains a matching alias.
-      # oats_public_hostname: oats-store.example.com
+      # Change if you want to store the data somewhere else.
+      # oats_data_root: /var/lib/garage
 
-      # Write the nginx vhost. False when the proxy is managed elsewhere.
+      # Install nginx alongside garage if there is no external proxy.
       # oats_nginx_manage: true

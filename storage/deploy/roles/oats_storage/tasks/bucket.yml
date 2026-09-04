@@ -1,0 +1,29 @@
+---
+- name: Wait for Garage to accept commands
+  ansible.builtin.command: garage status
+  register: oats_status
+  until: oats_status.rc == 0
+  retries: 30
+  delay: 1
+  changed_when: false
+
+- name: Read the bucket's state
+  ansible.builtin.shell: >-
+    curl -sS --fail -H "Authorization: Bearer $(cat {{ oats_conf_dir }}/admin_token)"
+    "{{ oats_admin_endpoint }}/v2/GetBucketInfo?globalAlias={{ oats_bucket }}"
+  register: oats_bucket_info
+  changed_when: false
+
+- name: Parse the bucket's state
+  ansible.builtin.set_fact:
+    oats_bucket_state: "{{ oats_bucket_info.stdout | from_json }}"
+
+- name: Open the bucket for anonymous reads
+  ansible.builtin.shell: >-
+    curl -sS --fail -H "Authorization: Bearer $(cat {{ oats_conf_dir }}/admin_token)"
+    -H "Content-Type: application/json"
+    -X POST "{{ oats_admin_endpoint }}/v2/UpdateBucket?id={{ oats_bucket_state.id }}"
+    --data {{ oats_bucket_public | to_json | quote }}
+  when: >-
+    not oats_bucket_state.websiteAccess
+    or oats_bucket_state.corsRules != oats_bucket_public.corsRules

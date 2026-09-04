@@ -1,0 +1,20 @@
+# Managed by Ansible; local edits are overwritten.
+[Unit]
+Description=Garage object store
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User={{ oats_service_user }}
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths={{ oats_data_root }}
+Environment=GARAGE_DEFAULT_BUCKET={{ oats_bucket }}
+EnvironmentFile={{ oats_writer_env }}
+ExecStart={{ oats_bin_dir }}/garage server --single-node --default-bucket
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

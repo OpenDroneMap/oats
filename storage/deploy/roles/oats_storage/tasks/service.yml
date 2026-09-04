@@ -1,62 +1,100 @@
 ---
+- name: Install the tools the role runs
+  ansible.builtin.apt:
+    name: [curl, openssl]
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create the service user
+  ansible.builtin.user:
+    name: "{{ oats_service_user }}"
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+
 - name: Create the store directories
   ansible.builtin.file:
     path: "{{ item.path }}"
     state: directory
     mode: "{{ item.mode }}"
+    owner: "{{ item.owner | default(omit) }}"
   loop:
+    - { path: "{{ oats_bin_dir }}", mode: "0755" }
     - { path: "{{ oats_storage_dir }}", mode: "0755" }
-    - { path: "{{ oats_data_root }}/meta", mode: "0700" }
-    - { path: "{{ oats_data_root }}/data", mode: "0700" }
-    - { path: "{{ oats_conf_dir }}", mode: "0700" }
-    - { path: "{{ oats_conf_dir }}/mc", mode: "0700" }
+    - { path: "{{ oats_conf_dir }}", mode: "0755" }
+    - { path: "{{ oats_data_root }}/meta", mode: "0700", owner: "{{ oats_service_user }}" }
+    - { path: "{{ oats_data_root }}/data", mode: "0700", owner: "{{ oats_service_user }}" }
 
-- name: Deploy the store configuration
-  ansible.builtin.copy:
-    src: "{{ playbook_dir }}/../{{ item.name }}"
-    dest: "{{ oats_storage_dir }}/{{ item.name }}"
-    mode: "{{ item.mode }}"
-  loop:
-    - { name: compose.yaml, mode: "0644" }
-    - { name: garage.toml, mode: "0644" }
-    - { name: cors.xml, mode: "0644" }
-    - { name: publish_run.sh, mode: "0755" }
+- name: Install the garage binary
+  ansible.builtin.get_url:
+    url: "{{ oats_garage_url }}"
+    checksum: "sha256:{{ oats_garage_sha256 }}"
+    dest: "{{ oats_bin_dir }}/garage"
+    mode: "0755"
   notify: Restart Garage
 
-- name: Point Garage's volumes at the data disk
+- name: Deploy the publish script
+  ansible.builtin.copy:
+    src: "{{ role_path }}/../../../publish_run.sh"
+    dest: "{{ oats_storage_dir }}/publish_run.sh"
+    mode: "0755"
+
+# Generated once; a re-run never rotates them.
+- name: Generate the Garage secrets
+  ansible.builtin.copy:
+    content: "{{ lookup('ansible.builtin.password', '/dev/null', chars=['hexdigits'], length=64) | lower }}"
+    dest: "{{ oats_conf_dir }}/{{ item }}"
+    mode: "0600"
+    owner: "{{ oats_service_user }}"
+    force: false
+  loop: [rpc_secret, admin_token]
+  no_log: true
+
+- name: Generate the writer key
+  ansible.builtin.shell: |
+    set -e
+    id="GK$(openssl rand -hex 12)"
+    secret="$(openssl rand -hex 32)"
+    cat <<END
+    # Garage creates this key on start-up; S3 clients read it by the AWS names.
+    GARAGE_DEFAULT_ACCESS_KEY=$id
+    GARAGE_DEFAULT_SECRET_KEY=$secret
+    AWS_ACCESS_KEY_ID=$id
+    AWS_SECRET_ACCESS_KEY=$secret
+    END
+  register: oats_writer_key
+  changed_when: false
+  no_log: true
+
+- name: Store the writer key
+  ansible.builtin.copy:
+    content: "{{ oats_writer_key.stdout }}\n"
+    dest: "{{ oats_writer_env }}"
+    mode: "0600"
+    force: false
+  register: oats_writer_env_file
+  no_log: true
+
+- name: Write the Garage configuration
   ansible.builtin.template:
-    src: compose.override.yaml.j2
-    dest: "{{ oats_storage_dir }}/compose.override.yaml"
+    src: garage.toml.j2
+    dest: /etc/garage.toml
     mode: "0644"
   notify: Restart Garage
 
-# Generated once; a re-run never rotates them.
-- name: Look for existing Garage secrets
-  ansible.builtin.stat:
-    path: "{{ oats_storage_dir }}/.env"
-  register: oats_env_file
-
-- name: Generate Garage secrets
-  ansible.builtin.set_fact:
-    oats_rpc_secret: "{{ lookup('ansible.builtin.password', '/dev/null', chars=['hexdigits'], length=64) | lower }}"
-    oats_admin_token: "{{ lookup('ansible.builtin.password', '/dev/null', length=32) }}"
-  when: not oats_env_file.stat.exists
-  no_log: true
-
-- name: Write the Garage secrets file
-  ansible.builtin.copy:
-    content: |
-      GARAGE_RPC_SECRET={{ oats_rpc_secret }}
-      GARAGE_ADMIN_TOKEN={{ oats_admin_token }}
-    dest: "{{ oats_storage_dir }}/.env"
-    mode: "0600"
-  when: not oats_env_file.stat.exists
-  no_log: true
+- name: Install the Garage unit
+  ansible.builtin.template:
+    src: garage.service.j2
+    dest: /etc/systemd/system/garage.service
+    mode: "0644"
+  notify: Restart Garage
 
 - name: Start Garage
-  community.docker.docker_compose_v2:
-    project_src: "{{ oats_storage_dir }}"
-    state: present
+  ansible.builtin.systemd:
+    name: garage
+    daemon_reload: true
+    enabled: true
+    state: started
 
 - name: Flush handlers so Garage restarts before it is initialised
   ansible.builtin.meta: flush_handlers

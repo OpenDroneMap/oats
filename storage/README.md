@@ -19,8 +19,8 @@ oats-runs (bucket root)
     tests/<dataset>/<test>/...                  # the ODM outputs
 ```
 
-The key is the manifest's `run_key`. `index.json` is all the viewer reads to
-find runs; it never lists the bucket:
+Each run is stored under its `run_key` from `run_manifest.json`. `index.json` is
+all the viewer reads to find runs:
 
 ```json
 {
@@ -43,52 +43,75 @@ find runs; it never lists the bucket:
 
 ## Deployment
 
-`deploy/` holds an idempotent Ansible role; re-run it for any change:
+`deploy/` holds an idempotent Ansible role; re-run it for any change. The
+target needs systemd and ssh; the role installs the rest:
 
-- `disk.yml` — data disk
-- `service.yml` — config, secrets, container
-- `cluster.yml` — layout, bucket, anonymous read
-- `credentials.yml` — writer key
-- `access.yml` — `mc`, CORS
+- `service.yml` — `garage` binary, secrets, config, systemd unit
+- `bucket.yml` — anonymous read, CORS
 - `proxy.yml` — hostname alias, nginx vhost
 
 ```sh
 cd deploy
-ansible-galaxy collection install -r requirements.yml
-cp inventory.example.yml inventory.yml     # update host, disk, hostname
+cp inventory.example.yml inventory.yml     # update host, user, hostname
 ansible-playbook storage.yml
 ```
 
-Garage holds the writer key and shows it on demand, so the deploy caches it in
-root-only `/etc/oats/writer.env` and rewrites it if it goes missing.
-`-e oats_fetch_writer_env=true` copies it back for CI.
+Data lives in `/var/lib/garage` by default but can be changed in
+`inventory.yml`. The `oats_public_hostname` must match the nginx vhost.
 
-Manual, on the Proxmox host — it needs hypervisor root, and the VM's lifecycle
-belongs to the runner setup rather than the store:
+The S3 API listens on port 3900 and the web endpoint on 3902, on every
+interface; RPC and the admin API stay on loopback. A reverse proxy on another
+machine serves the store with:
 
-```sh
-qm set <vmid> -scsi1 /dev/disk/by-id/<drive-id>   # pass the data disk through
-qm set <vmid> -onboot 1
+eg.
+```nginx
+server {
+    server_name oats-store.opendronemap.org;
+    location / {
+        proxy_pass http://<vm>:3902;
+        proxy_set_header Host $host;   # Garage picks the bucket by Host
+        proxy_buffering off;           # ODM outputs are large
+        ...
+    }
+}
 ```
 
-Snapshot before a Garage upgrade: `qm snapshot <vmid> pre-upgrade`.
+Set `oats_public_hostname` to that `server_name`: the role aliases the bucket to
+it, which is how Garage maps the domain to the bucket. Set `oats_nginx_manage`
+only when nginx runs on the store VM itself.
 
-## Local development
+Garage starts with `--single-node --default-bucket`, which assigns the layout,
+creates the bucket and imports the writer key from `/etc/oats/writer.env`. The
+role generates that key on the first run and prints it at the end, for the CI
+secret store. Afterwards, `sudo cat /etc/oats/writer.env` on the host.
 
-To run the storage role locally, into `~/.local/share/oats-store`:
+Garage runs as the `garage` user under systemd, configured by
+`/etc/garage.toml`; `garage status` on the host shows the node. To upgrade, snapshot the guest
+(`qm snapshot <vmid> pre-upgrade`),
+
+To update versions, set `oats_garage_version` and `oats_garage_sha256` to the
+new release and re-run the playbook.
+
+## Testing
+
+The role has a [Molecule](https://ansible.readthedocs.io/projects/molecule/)
+scenario that applies it to a systemd container, applies it again to check
+nothing changes, then checks the bucket is served anonymously with CORS:
 
 ```sh
-cd deploy
-ansible-playbook -i inventory.local.yml storage.yml
+uv tool install molecule --with 'molecule-plugins[docker]' --with ansible-core
+~/.local/share/uv/tools/molecule/bin/ansible-galaxy collection install community.docker
+cd deploy/roles/oats_storage
+molecule test
 ```
 
-Garage resolves the bucket from the request `Host`. To browse
-`127.0.0.1:3902`, point `oats-runs` at `127.0.0.1` in `/etc/hosts`.
+`molecule converge` leaves the container running for inspection;
+`molecule destroy` removes it.
 
 ## Publishing
 
 ```sh
-./publish_run.sh <run_dir> s3://oats-runs --endpoint http://127.0.0.1:3900
+./publish_run.sh <run_dir> s3://oats-runs --endpoint http://<vm>:3900
 ```
 
 Idempotent per run key. Needs `mc`, `jq`, and `AWS_ACCESS_KEY_ID` /
@@ -99,16 +122,17 @@ whatever is already in the store.
 
 ## Credentials
 
-- `GARAGE_RPC_SECRET` / `GARAGE_ADMIN_TOKEN`: generated on first deploy into `.env`.
-- Writer key: `/etc/oats/writer.env` and the CI secret store.
+- `rpc_secret`, `admin_token`: generated on first deploy into `/etc/oats`,
+  readable only by the `garage` user. The admin API listens on loopback
+  port 3903.
+- Writer key: `/etc/oats/writer.env`, root-only, and the CI secret store.
 - The viewer needs none.
 
 The writer key uses the standard S3 variable names, so any S3 tool reads it
 without translation. Name the CI secrets for OATS and map them to those names in
 the workflow.
 
-`.env`, `compose.override.yaml`, `deploy/inventory.yml` and `deploy/writer.env`
-are git-ignored.
+`deploy/inventory.yml` is git-ignored.
 
 ## Durability
 

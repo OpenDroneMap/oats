@@ -1,35 +1,43 @@
 ---
-# Where compose.yaml, garage.toml and cors.xml are deployed.
+# Where publish_run.sh is deployed.
 oats_storage_dir: /opt/oats-storage
 
-# Garage's metadata and data, on the data disk.
-oats_data_mount: /data
-oats_data_root: "{{ oats_data_mount }}/oats-garage"
-
-# Formatted and mounted at oats_data_mount. Unset means no disks are touched.
-oats_data_device: ""
-oats_data_fstype: ext4
+# Garage's metadata and data. Mount a separate disk here first if wanted.
+oats_data_root: /var/lib/garage
 
 oats_bucket: oats-runs
-oats_key_name: oats-writer
-oats_zone: dc1
-oats_capacity: 100G
 
-# The CLI lives in the container; RUST_LOG quietens it.
-oats_garage: docker compose exec -T -e RUST_LOG=error garage /garage
-oats_s3_endpoint: http://127.0.0.1:3900
+# The bucket's public face: served by the web endpoint, readable from any origin.
+oats_bucket_public:
+  websiteAccess:
+    enabled: true
+    indexDocument: index.html
+  corsRules:
+    - AllowedOrigin: ["*"]
+      AllowedMethod: [GET, HEAD]
+      AllowedHeader: ["*"]
+      ExposeHeader: [ETag, Content-Length, Content-Type]
+      MaxAgeSeconds: 3600
+
+# The S3 API (3900) and web endpoint (3902) listen here; RPC and admin stay on
+# loopback.
+oats_bind_addr: 0.0.0.0
 oats_web_endpoint: http://127.0.0.1:3902
+oats_admin_endpoint: http://127.0.0.1:3903
 
-# Root-only. Garage reveals a secret only at creation, so this is the only copy.
+# garage is installed here, which the role puts on PATH.
+oats_bin_dir: /usr/local/bin
+oats_garage_version: v2.3.0
+oats_garage_url: "https://garagehq.deuxfleurs.fr/_releases/{{ oats_garage_version }}/x86_64-unknown-linux-musl/garage"
+# sha256sum of the download; Garage publishes none, so compute it on a bump.
+oats_garage_sha256: f98d317942bb341151a2775162016bb50cf86b865d0108de03eb5db16e2120cd
+
+# Garage runs under systemd as this user.
+oats_service_user: garage
+
+# Secrets, generated on the first run and printed once.
 oats_conf_dir: /etc/oats
 oats_writer_env: "{{ oats_conf_dir }}/writer.env"
-
-# Copy the credentials to the control node, for the CI secret store.
-oats_fetch_writer_env: false
-oats_fetch_dest: ./writer.env
-
-oats_mc_path: /usr/local/bin/mc
-oats_mc_url: https://dl.min.io/client/mc/release/linux-amd64/mc
 
 # When set, the bucket is aliased to it. The vhost needs oats_nginx_manage.
 oats_public_hostname: ""

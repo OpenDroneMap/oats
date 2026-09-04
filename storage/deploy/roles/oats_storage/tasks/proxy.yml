@@ -2,17 +2,13 @@
 # Garage resolves the bucket from the request Host, so the hostname must
 # exist as an alias.
 - name: Read the bucket's aliases
-  ansible.builtin.command: "{{ oats_garage }} bucket info {{ oats_bucket }}"
-  args:
-    chdir: "{{ oats_storage_dir }}"
+  ansible.builtin.command: garage bucket info {{ oats_bucket }}
   register: oats_bucket_info
   changed_when: false
 
 - name: Alias the bucket to the public hostname
   ansible.builtin.command: >-
-    {{ oats_garage }} bucket alias {{ oats_bucket }} {{ oats_public_hostname }}
-  args:
-    chdir: "{{ oats_storage_dir }}"
+    garage bucket alias {{ oats_bucket }} {{ oats_public_hostname }}
   when: oats_public_hostname not in oats_bucket_info.stdout
 
 - name: Write the nginx vhost

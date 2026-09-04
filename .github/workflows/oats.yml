@@ -147,9 +147,17 @@ jobs:
           require_tests: true
           fail_on_failure: true
 
-      # TODO: This will need updating once the self-hosted Garage storage
-      # service exists For now we just store the text artifacts as the whole
-      # results directory is far too big to store as an artifact.
+      # The whole run goes to the artifact store when one is configured; the
+      # GitHub artifact keeps the small text outputs close to the run page.
+      - name: Publish run to the store
+        if: always() && steps.rundir.outputs.run_dir != '' && vars.OATS_STORE_ENDPOINT != ''
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.OATS_STORE_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.OATS_STORE_SECRET_ACCESS_KEY }}
+        run: |
+          storage/publish_run.sh "${{ steps.rundir.outputs.run_dir }}" s3://oats-runs \
+            --endpoint "${{ vars.OATS_STORE_ENDPOINT }}"
+
       - name: Upload run artifact
         if: always() && steps.rundir.outputs.run_dir != ''
         uses: actions/upload-artifact@v7

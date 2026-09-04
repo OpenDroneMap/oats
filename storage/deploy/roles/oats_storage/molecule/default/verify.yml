@@ -1,0 +1,47 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  tasks:
+    - name: Read the bucket through the admin API
+      ansible.builtin.shell: >-
+        curl -sS --fail -H "Authorization: Bearer $(cat /etc/oats/admin_token)"
+        "http://127.0.0.1:3903/v2/GetBucketInfo?globalAlias=oats-runs"
+      register: bucket
+      changed_when: false
+
+    - name: Check the bucket is served anonymously with CORS
+      ansible.builtin.assert:
+        that:
+          - (bucket.stdout | from_json).websiteAccess
+          - (bucket.stdout | from_json).corsRules | length == 1
+          - (bucket.stdout | from_json)['keys'] | length == 1
+
+    - name: Fetch a missing object from the web endpoint
+      ansible.builtin.uri:
+        url: http://127.0.0.1:3902/nothing
+        headers:
+          Host: oats-runs
+          Origin: http://example.com
+        status_code: 404
+      register: web
+
+    - name: Check the web endpoint answers with CORS headers
+      ansible.builtin.assert:
+        that: web.access_control_allow_origin == '*'
+
+    - name: Reach the S3 API and web endpoint on the host's address
+      ansible.builtin.uri:
+        url: "http://{{ ansible_default_ipv4.address }}:{{ item.port }}/"
+        headers:
+          Host: oats-runs
+        status_code: "{{ item.status }}"
+      loop:
+        - { port: 3900, status: 403 }
+        - { port: 3902, status: 404 }
+
+    - name: Check RPC and the admin API stay on loopback
+      ansible.builtin.uri:
+        url: "http://{{ ansible_default_ipv4.address }}:{{ item }}/"
+        status_code: -1
+      loop: [3901, 3903]

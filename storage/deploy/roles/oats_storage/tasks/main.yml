@@ -1,26 +1,20 @@
 ---
-- name: Check that Docker is installed
-  ansible.builtin.command: docker compose version
-  changed_when: false
-  register: oats_docker_check
-  failed_when: oats_docker_check.rc != 0
+- name: Deploy the store
+  environment:
+    PATH: "{{ oats_bin_dir }}:{{ ansible_env.PATH }}"
+    RUST_LOG: error
+  block:
+    - name: Install and start the Garage service
+      ansible.builtin.import_tasks: service.yml
 
-- name: Prepare the data disk
-  ansible.builtin.import_tasks: disk.yml
-  when: oats_data_device | length > 0
+    - name: Open the bucket for anonymous reads
+      ansible.builtin.import_tasks: bucket.yml
 
-- name: Deploy and start the Garage service
-  ansible.builtin.import_tasks: service.yml
+    - name: Publish the bucket under its hostname
+      ansible.builtin.import_tasks: proxy.yml
+      when: oats_public_hostname | length > 0
 
-- name: Set up the cluster and its bucket
-  ansible.builtin.import_tasks: cluster.yml
-
-- name: Issue the writer key
-  ansible.builtin.import_tasks: credentials.yml
-
-- name: Open the bucket for browser reads
-  ansible.builtin.import_tasks: access.yml
-
-- name: Publish the bucket under its hostname
-  ansible.builtin.import_tasks: proxy.yml
-  when: oats_public_hostname | length > 0
+    - name: Show the new writer key, for the CI secrets
+      ansible.builtin.debug:
+        msg: "{{ oats_writer_key.stdout_lines | select('match', 'AWS_') }}"
+      when: oats_writer_env_file.changed

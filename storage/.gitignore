@@ -1,4 +1,1 @@
-.env
-compose.override.yaml
 deploy/inventory.yml
-deploy/writer.env
