@@ -107,6 +107,12 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "Resolved image=$image tag=$tag group=$group (event=$EVENT_NAME)"
 
+      - name: Report disk space
+        run: |
+          docker image prune -f
+          df -h / /tmp "$GITHUB_WORKSPACE"
+          docker system df
+
       - name: Pull ODM image
         run: docker pull "${{ steps.params.outputs.image }}:${{ steps.params.outputs.tag }}"
 
