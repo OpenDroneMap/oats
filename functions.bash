@@ -68,6 +68,24 @@ run_test(){
 	[ "$status" -eq 0 ]
 }
 
+# Runs a tool from the ODM image under test, with the current test's output
+# directory mounted at /dataset. Paths given to the tool are container paths.
+# Images built with pixi put their tools on PATH through the shell hook; older
+# images keep them under SuperBuild/install.
+odm_tool(){
+	docker run --rm \
+		-v "$(pwd)/$output_dir:/dataset" \
+		--entrypoint bash \
+		"$DOCKER_IMAGE:$tag" \
+		-c '
+			if [ -f /code/scripts/pixi-shell-hook ]; then
+				. /code/scripts/pixi-shell-hook
+			else
+				export PATH="/code/SuperBuild/install/bin:$PATH"
+			fi
+			exec "$@"' bash "$@"
+}
+
 teardown(){
 	[ -n "${odm_status:-}" ] || return 0
 

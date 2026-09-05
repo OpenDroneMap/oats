@@ -61,7 +61,7 @@ DATASET_URL=https://github.com/OpenDroneMap/drone_dataset_brighton_beach/archive
   [ -e "$output_dir/dsm_tiles" ]
   [ -e "$output_dir/dtm_tiles" ]
 
-  gdalinfo "$output_dir/odm_orthophoto/odm_orthophoto.tif" | grep -q Overviews
+  odm_tool gdalinfo /dataset/odm_orthophoto/odm_orthophoto.tif | grep -q Overviews
 }
 
 @test "GeoTIFF alignment" {
