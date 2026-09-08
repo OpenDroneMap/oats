@@ -50,23 +50,15 @@ target needs systemd and ssh; the role installs the rest:
 - `bucket.yml` — anonymous read, CORS
 - `proxy.yml` — hostname alias, nginx vhost
 
-```sh
-cd deploy
-cp inventory.example.yml inventory.yml     # update host, user, hostname
-ansible-playbook storage.yml
-```
+Step one is to set up a separate VM in proxmox that will host our data. It needs
+Debian or Ubuntu (apt), an ssh user with sudo, and the disk mounted at
+`/var/lib/garage` (you can change the path in the inventory if preferred).
 
-Data lives in `/var/lib/garage` by default but can be changed in
-`inventory.yml`. The `oats_public_hostname` must match the nginx vhost.
+Add a vhost to the `nginx` proxy:
 
-The S3 API listens on port 3900 and the web endpoint on 3902, on every
-interface; RPC and the admin API stay on loopback. A reverse proxy on another
-machine serves the store with:
-
-eg.
 ```nginx
 server {
-    server_name oats-store.opendronemap.org;
+    server_name oats-store.opendronemap.org;   # eg.
     location / {
         proxy_pass http://<vm>:3902;
         proxy_set_header Host $host;   # Garage picks the bucket by Host
@@ -76,14 +68,21 @@ server {
 }
 ```
 
+The S3 API listens on port 3900 and the web endpoint on 3902, on every
+interface; RPC and the admin API stay on loopback.
+
 Set `oats_public_hostname` in the inventory to the `server_name` in nginx: the
 role aliases the bucket to it, which is how Garage maps the domain to the
 bucket. Set `oats_nginx_manage` only when nginx runs on the store VM itself.
 
-Garage starts with `--single-node --default-bucket`, which assigns the layout,
-creates the bucket and imports the writer key from `/etc/oats/writer.env`. The
-role generates that key on the first run and prints it at the end, for the CI
-secret store. Afterwards, `sudo cat /etc/oats/writer.env` on the host.
+```sh
+cd deploy
+cp inventory.example.yml inventory.yml     # update host, user, hostname
+ansible-playbook storage.yml
+```
+
+The role generates the writer key on the first run and prints it at the end, for
+the CI secret store. Afterwards, `sudo cat /etc/oats/writer.env` on the host.
 
 Garage runs as the `garage` user under systemd, configured by
 `/etc/garage.toml`. `garage status` on the host shows the node.
