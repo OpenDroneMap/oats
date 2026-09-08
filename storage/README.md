@@ -76,9 +76,9 @@ server {
 }
 ```
 
-Set `oats_public_hostname` to that `server_name`: the role aliases the bucket to
-it, which is how Garage maps the domain to the bucket. Set `oats_nginx_manage`
-only when nginx runs on the store VM itself.
+Set `oats_public_hostname` in the inventory to the `server_name` in nginx: the
+role aliases the bucket to it, which is how Garage maps the domain to the
+bucket. Set `oats_nginx_manage` only when nginx runs on the store VM itself.
 
 Garage starts with `--single-node --default-bucket`, which assigns the layout,
 creates the bucket and imports the writer key from `/etc/oats/writer.env`. The
@@ -86,8 +86,7 @@ role generates that key on the first run and prints it at the end, for the CI
 secret store. Afterwards, `sudo cat /etc/oats/writer.env` on the host.
 
 Garage runs as the `garage` user under systemd, configured by
-`/etc/garage.toml`; `garage status` on the host shows the node. To upgrade, snapshot the guest
-(`qm snapshot <vmid> pre-upgrade`),
+`/etc/garage.toml`. `garage status` on the host shows the node.
 
 To update versions, set `oats_garage_version` and `oats_garage_sha256` to the
 new release and re-run the playbook.
@@ -100,7 +99,8 @@ nothing changes, then checks the bucket is served anonymously with CORS:
 
 ```sh
 uv tool install molecule --with 'molecule-plugins[docker]' --with ansible-core
-~/.local/share/uv/tools/molecule/bin/ansible-galaxy collection install community.docker
+uv tool install ansible-core
+ansible-galaxy collection install community.docker
 cd deploy/roles/oats_storage
 molecule test
 ```
