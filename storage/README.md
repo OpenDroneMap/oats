@@ -8,16 +8,27 @@ the backend later if we need more storage etc.
 
 ## Store contract
 
-Each run sits at its identity path, exactly as the harness writes it:
+Each run sits at its identity path, laid out as the harness writes it but
+holding only the primary outputs:
 
 ```
 oats-runs (bucket root)
   index.json                                    # every run, newest first
   <odm_git_short>/<image_key12>/<timestamp>/    # one self-contained run
     run_manifest.json
+    oats_manifest.tsv
     reports/*.xml
-    tests/<dataset>/<test>/...                  # the ODM outputs
+    tests/<dataset>/<test>/
+      *.json, *.txt                             # log, options, task output
+      odm_orthophoto/odm_orthophoto.tif
+      odm_dem/*.tif
+      odm_georeferencing/odm_georeferenced_model.laz
+      odm_report/
 ```
+
+Input images, OpenSfM/OpenMVS intermediates, meshes and textures stay on the
+runner; the allowlist is `PUBLISH_FILTER` in `publish_run.sh`. A full run is
+about 2GB in the store against 50-60GB on the runner.
 
 Each run is stored under its `run_key` from `run_manifest.json`. `index.json` is
 all the viewer reads to find runs:
@@ -113,7 +124,7 @@ molecule test
 ./publish_run.sh <run_dir> s3://oats-runs --endpoint http://<vm>:3900
 ```
 
-Idempotent per run key. Needs `mc`, `jq`, and `AWS_ACCESS_KEY_ID` /
+Idempotent per run key. Needs `rclone`, `jq`, and `AWS_ACCESS_KEY_ID` /
 `AWS_SECRET_ACCESS_KEY`. See `--help`.
 
 `index.json` is derived from the run manifests, so `--reindex` rebuilds it from

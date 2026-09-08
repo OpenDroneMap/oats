@@ -3,6 +3,11 @@
 # Publish an OATS run directory to the Garage (S3) store and regenerate the
 # store's index.json. Idempotent per run key. See storage/README.md.
 #
+# Only the primary outputs are published: the run manifests and reports, each
+# test's logs and options, and per test the orthophoto, DEMs, georeferenced
+# point cloud and report. Input images, OpenSfM/OpenMVS intermediates, meshes
+# and textures stay on the runner.
+#
 # Usage:
 #   publish_run.sh <run_dir> <s3_url> --endpoint URL
 #   publish_run.sh --reindex <s3_url> --endpoint URL
@@ -15,11 +20,12 @@
 #   --endpoint URL   S3 endpoint, e.g. http://127.0.0.1:3900 (required)
 #   --reindex        Rebuild index.json from the manifests already in the
 #                    store, without publishing a run
-#   --mc PATH        mc binary to use (default: mc on PATH, or $OATS_MC)
 #   -h, --help       Show this help
 #
 # S3 credentials are read from the environment:
 #   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+#
+# Needs rclone and jq.
 
 set -euo pipefail
 
@@ -31,11 +37,6 @@ usage() {
 die() {
 	echo "$*" >&2
 	exit 1
-}
-
-# mc with the throwaway config dir created below.
-s3() {
-	"$MC" --config-dir "$CFG" "$@"
 }
 
 # jq program turning a stream of run manifests into the store index. Each run
@@ -56,6 +57,22 @@ INDEX_JQ='{
     } ] | sort_by(.timestamp) | reverse
 }'
 
+# rclone filter selecting what is published. First match wins; the final rule
+# drops everything not listed, and rclone does not descend into directories
+# nothing could match, so opensfm/, images/ and submodels/ are never walked.
+PUBLISH_FILTER='
++ /run_manifest.json
++ /oats_manifest.tsv
++ /reports/**
++ /tests/*/*/*.json
++ /tests/*/*/*.txt
++ /tests/*/*/odm_orthophoto/odm_orthophoto.tif
++ /tests/*/*/odm_dem/*.tif
++ /tests/*/*/odm_georeferencing/odm_georeferenced_model.laz
++ /tests/*/*/odm_report/**
+- *
+'
+
 # The run key is the run's identity path, written by the harness. Fall back
 # to the run directory's own trailing <rev>/<img>/<timestamp> path if absent.
 run_key_of() {
@@ -74,14 +91,9 @@ run_key_of() {
 # checked before upload: a failed enumeration must not replace a populated
 # index with a short or empty one. Prints the number of runs indexed.
 reindex() {
-	local required="${1:-}" keys="$CFG/keys" manifests="$CFG/manifests" index="$CFG/index.json" count
+	local required="${1:-}" manifests="$CFG/manifests" index="$CFG/index.json" count
 
-	s3 find "$BASE" --name run_manifest.json > "$keys"
-	: > "$manifests"
-	while IFS= read -r key; do
-		s3 cat "$key" >> "$manifests"
-	done < "$keys"
-
+	rclone cat "$STORE" --include 'run_manifest.json' > "$manifests"
 	jq -s "$INDEX_JQ" < "$manifests" > "$index"
 	count=$(jq '.runs | length' "$index")
 
@@ -91,7 +103,7 @@ reindex() {
 			|| die "$required missing from the rebuilt index; leaving index.json alone"
 	fi
 
-	s3 pipe "$BASE/index.json" < "$index" >/dev/null
+	rclone rcat "$STORE/index.json" < "$index"
 	echo "$count"
 }
 
@@ -99,14 +111,12 @@ reindex() {
 
 ENDPOINT=""
 REINDEX=false
-MC="${OATS_MC:-mc}"
 positional=()
 
 while [ $# -gt 0 ]; do
 	case "$1" in
 		--endpoint) ENDPOINT="$2"; shift 2;;
 		--reindex) REINDEX=true; shift;;
-		--mc) MC="$2"; shift 2;;
 		-h|--help) usage 0;;
 		-*) echo "Unknown option: $1" >&2; usage 1;;
 		*) positional+=("$1"); shift;;
@@ -132,17 +142,26 @@ esac
 	|| die "AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must be set"
 
 command -v jq >/dev/null || die "jq is required"
-command -v "$MC" >/dev/null || die "mc client not found: $MC"
+command -v rclone >/dev/null || die "rclone is required"
 
 # --- Publish -----------------------------------------------------------------
 
 CFG=$(mktemp -d)
 trap 'rm -rf "$CFG"' EXIT
 
-# <alias>/bucket[/prefix] from s3://bucket[/prefix]
-ALIAS="oats-publish-$$"
-BASE="$ALIAS/${TARGET#s3://}"
-s3 alias set "$ALIAS" "$ENDPOINT" "$AWS_ACCESS_KEY_ID" "$AWS_SECRET_ACCESS_KEY" >/dev/null
+# An on-the-fly S3 remote against the Garage endpoint, credentials from the
+# AWS_* variables. The empty config file stops rclone announcing that it has
+# none; the key never appears on a command line.
+: > "$CFG/rclone.conf"
+export RCLONE_CONFIG="$CFG/rclone.conf"
+export RCLONE_S3_PROVIDER=Other
+export RCLONE_S3_ENDPOINT="$ENDPOINT"
+export RCLONE_S3_REGION=garage
+export RCLONE_S3_ENV_AUTH=true
+export RCLONE_S3_NO_CHECK_BUCKET=true
+
+# :s3:bucket[/prefix] from s3://bucket[/prefix]
+STORE=":s3:${TARGET#s3://}"
 
 if $REINDEX; then
 	count=$(reindex)
@@ -151,7 +170,9 @@ if $REINDEX; then
 fi
 
 RUN_KEY=$(run_key_of "$RUN_DIR")
-s3 mirror --overwrite --remove "$RUN_DIR/" "$BASE/$RUN_KEY" >/dev/null
+printf '%s' "$PUBLISH_FILTER" > "$CFG/filter"
+# --delete-excluded also trims anything a fuller earlier publish left behind.
+rclone sync "$RUN_DIR" "$STORE/$RUN_KEY" --filter-from "$CFG/filter" --delete-excluded
 count=$(reindex "$RUN_KEY")
 
 echo "Published run $RUN_KEY to $TARGET/$RUN_KEY"
