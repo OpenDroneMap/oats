@@ -1,0 +1,7 @@
+---
+# Deploy the OATS artifact store. See ../README.md.
+- name: OATS artifact store
+  hosts: all
+  become: true
+  roles:
+    - oats_storage

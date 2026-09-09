@@ -1,0 +1,11 @@
+---
+- name: Restart Garage
+  ansible.builtin.systemd:
+    name: garage
+    daemon_reload: true
+    state: restarted
+
+- name: Reload nginx
+  ansible.builtin.systemd:
+    name: nginx
+    state: reloaded

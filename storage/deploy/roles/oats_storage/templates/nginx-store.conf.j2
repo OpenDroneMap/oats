@@ -1,0 +1,14 @@
+# Managed by Ansible; local edits are overwritten.
+# Read-only store: Garage's web endpoint.
+server {
+    server_name {{ oats_public_hostname }};
+
+    # ODM outputs are large; do not buffer them to disk.
+    proxy_buffering off;
+    client_max_body_size 0;
+
+    location / {
+        proxy_pass {{ oats_web_endpoint }};
+        proxy_set_header Host $host;
+    }
+}

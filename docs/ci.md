@@ -10,8 +10,9 @@ outside it, namely the runner, the cross-repo token and the ODM-side trigger.
 Register a runner against this repository (*Settings → Actions → Runners*). The
 default `self-hosted` label is all the workflow asks for.
 
-It needs docker, plus `git`, `wget`, `rsync`, `sed`, `unzip` and `jq` on
-`PATH`; `./run` bootstraps bats itself. Give it plenty of RAM —
+It needs docker, plus `git`, `wget`, `rsync`, `sed`, `unzip`, `jq`, and `rclone`
+on `PATH`; `./run` bootstraps bats itself. Give it plenty of RAM —
+
 the suite is RAM-bound and the `all` group sets the ceiling. Each full run
 generates about 60GB of output right now so as a rough guide we should aim for
 about 1TB of disk space.
@@ -65,6 +66,18 @@ fails and the ODM publish job goes red.
 
 ## Results
 
-Currently we store the text outputs as a github artifact which will allow us to
-review any failures. This will be replaced by the s3-compatible Garage server
-once its set up.
+Every run uploads its reports and small text outputs as a GitHub artifact,
+kept for 14 days, which is enough to review a failure from the run page.
+
+The run's primary outputs go to the artifact store described in
+[`storage/README.md`](../storage/README.md) when the store is configured; the
+rest stays under `results/runs/` on the runner. The
+`Publish run to the store` step runs `storage/publish_run.sh`. To configure it,
+under *Settings → Secrets and variables → Actions* on this repository:
+
+- Variable `OATS_STORE_ENDPOINT`: the store's S3 API, e.g. `http://oats-vm.lan:3900`.
+- Secrets `OATS_STORE_ACCESS_KEY_ID` and `OATS_STORE_SECRET_ACCESS_KEY`: the
+  two values the storage playbook prints on its first run.
+
+The runner reaches the endpoint directly, so port 3900 on the store must be
+open to it. The step needs `rclone` and `jq` on the runner.

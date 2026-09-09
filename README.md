@@ -118,6 +118,12 @@ If you want to aggregate all files into a single directory for ease of view, you
 
 This command will copy all odm_orthophoto.tif files from all test cases into `/my/path`. See `./harvest --help` for more options.
 
+### Publishing runs to durable storage
+
+`results/runs/` is local and prunable. `storage/publish_run.sh` publishes a run
+to the artifact store, which serves it read-only for the comparison viewer. See
+[`storage/README.md`](storage/README.md).
+
 ## Roadmap
 
 We have great plans for OATS. Some of them include:
