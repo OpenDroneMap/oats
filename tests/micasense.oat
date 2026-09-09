@@ -15,3 +15,13 @@ DATASET_URL=https://github.com/OpenDroneMap/drone_dataset_micasense/archive/main
   $run_test "--fast-orthophoto --min-num-features 15000 --matcher-type bow"
   [ -e "$output_dir/odm_orthophoto/odm_orthophoto.tif" ]
 }
+
+@test "radiometric calibration camera" {
+  $run_test "--radiometric-calibration camera --fast-orthophoto --min-num-features 15000 --matcher-type bow"
+  [ -e "$output_dir/odm_orthophoto/odm_orthophoto.tif" ]
+}
+
+@test "radiometric calibration camera+sun" {
+  $run_test "--radiometric-calibration camera+sun --fast-orthophoto --min-num-features 15000 --matcher-type bow"
+  [ -e "$output_dir/odm_orthophoto/odm_orthophoto.tif" ]
+}

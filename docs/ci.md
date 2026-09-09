@@ -10,8 +10,9 @@ outside it, namely the runner, the cross-repo token and the ODM-side trigger.
 Register a runner against this repository (*Settings → Actions → Runners*). The
 default `self-hosted` label is all the workflow asks for.
 
-It needs docker, plus `git`, `wget`, `rsync`, `sed`, `unzip`, `jq`, `rclone`, and
-`gdalinfo` on `PATH`; `./run` bootstraps bats itself. Give it plenty of RAM —
+It needs docker, plus `git`, `wget`, `rsync`, `sed`, `unzip`, `jq`, and `rclone`
+on `PATH`; `./run` bootstraps bats itself. Give it plenty of RAM —
+
 the suite is RAM-bound and the `all` group sets the ceiling. Each full run
 generates about 60GB of output right now so as a rough guide we should aim for
 about 1TB of disk space.

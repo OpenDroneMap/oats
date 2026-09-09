@@ -1,0 +1,53 @@
+# Inspects the self-hosted OATS runner and, on request, prunes Docker. Run it
+# from the Actions tab to check disk space and host tools without a shell on
+# the machine. It shares the OATS concurrency group so it never removes images
+# while a suite run is in progress.
+
+name: Runner maintenance
+
+on:
+  workflow_dispatch:
+    inputs:
+      prune:
+        description: Remove all unused Docker images, containers, networks and build cache
+        type: boolean
+        default: false
+
+concurrency:
+  group: oats-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  maintenance:
+    runs-on: self-hosted
+    timeout-minutes: 30
+    steps:
+      - name: Disk space
+        run: |
+          df -h
+          echo
+          docker system df
+
+      - name: Docker
+        run: |
+          docker info --format 'Data root: {{.DockerRootDir}}'
+          docker version --format 'Server: {{.Server.Version}}'
+          echo
+          docker image ls --format 'table {{.Repository}}:{{.Tag}}\t{{.Size}}\t{{.CreatedSince}}'
+
+      - name: Host tools
+        run: |
+          for tool in git wget rsync sed unzip jq docker; do
+            printf '%-8s %s\n' "$tool" "$(command -v "$tool" || echo MISSING)"
+          done
+          echo
+          free -h
+          nproc
+
+      - name: Prune Docker
+        if: inputs.prune
+        run: |
+          docker system prune -af
+          echo
+          df -h /
+          docker system df
